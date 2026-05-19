@@ -49,7 +49,7 @@ export default function LoginForm() {
         },
         {
           onSuccess: () => {
-            navigate("/");
+            navigate("/profile");
             toast.success("Login successful");
           },
           onError: (error) => {

@@ -59,7 +59,7 @@ export default function SignUpForm() {
         },
         {
           onSuccess: () => {
-            navigate("/");
+            navigate("/profile");
             toast.success("Sign up successful");
           },
           onError: (error) => {
