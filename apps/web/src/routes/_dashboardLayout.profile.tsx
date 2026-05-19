@@ -19,8 +19,7 @@ export default function ProfilePage() {
   // TODO: build actual profile page
 
   return (
-    <div className="flex justify-center items-center min-h-screen p-6">
-      <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">
             Profile
@@ -46,6 +45,5 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-    </div>
   );
 }
