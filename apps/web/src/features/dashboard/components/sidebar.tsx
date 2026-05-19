@@ -11,14 +11,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { CompassIcon } from "lucide-react"
+import { CompassIcon, UserRoundIcon } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Link } from "react-router"
+import { Link, useLocation } from "react-router"
 
 
 export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const {data: session,isPending} = authClient.useSession();
+  const location = useLocation();
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -36,7 +37,14 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/profile"} render={<Link to="/profile" />}>
+              <UserRoundIcon className="size-4" />
+              <span>Profile</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
         {!isPending ? (
