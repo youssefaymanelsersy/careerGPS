@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { MapIcon } from "lucide-react"
+import { CompassIcon } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link } from "react-router"
@@ -26,7 +26,7 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to="/profile" />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <MapIcon className="size-4" />
+                <CompassIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-medium">CareerGPS</span>
