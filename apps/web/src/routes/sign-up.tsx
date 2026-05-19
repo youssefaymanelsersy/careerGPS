@@ -25,7 +25,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { PasswordInput, PasswordInputStrengthChecker } from "@/components/ui/password-input";
+import { PasswordInput, PasswordInputStrengthChecker } from "@/components/composites/password-input";
 
 const signUpSchema = z
   .object({

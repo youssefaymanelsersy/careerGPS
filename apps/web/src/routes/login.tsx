@@ -25,7 +25,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordInput } from "@/components/composites/password-input";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
