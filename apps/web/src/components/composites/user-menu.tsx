@@ -37,7 +37,9 @@ export default function UserMenu() {
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
+          <DropdownMenuItem onClick={()=>{
+            navigate("/profile")
+          }}>Profile</DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {
