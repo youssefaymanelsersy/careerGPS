@@ -1,5 +1,5 @@
 import React from 'react'
-import { Route, BarChart3, Trophy, Brain, Wrench } from 'lucide-react'
+import { Route, BarChart3, Trophy, Brain, Wrench, Users } from 'lucide-react'
 import { Surface } from '@/components/ui/surface'
 
 const features = [
@@ -28,6 +28,11 @@ const features = [
     title: 'Career Tools',
     description: 'Integrated resume builders, cover letter generators, and salary trackers.',
   },
+  {
+    icon: Users,
+    title: 'Community',
+    description: 'Connect with peers, share experiences, and grow your professional network.',
+  },
 ]
 
 function FeaturesSection() {
@@ -36,7 +41,7 @@ function FeaturesSection() {
       <h2 className="mb-16 text-center text-3xl font-bold tracking-tight">
           Equipped for the journey
         </h2>
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {features.map((feature) => {
             const Icon = feature.icon
             return (
