@@ -3,6 +3,7 @@ import type { Route } from "./+types/_marketingLayout._index";
 import HowItWorksSection from "@/features/marketing/components/how-it-works-section";
 import FeaturesSection from "@/features/marketing/components/features-section";
 import PricingSection from "@/features/marketing/components/pricing-section";
+import FaqSection from "@/features/marketing/components/faq-section";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -19,6 +20,7 @@ export default function Home() {
       <HowItWorksSection/>
       <FeaturesSection/>
       <PricingSection/>
+      <FaqSection/>
     </main>
   );
 }
