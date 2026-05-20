@@ -10,7 +10,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Mail, ArrowRight } from "lucide-react";
+import { Mail, User } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -25,14 +25,21 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { PasswordInput } from "@/components/composites/password-input";
+import { PasswordInput, PasswordInputStrengthChecker } from "@/components/composites/password-input";
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
+const signUpSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
-export default function LoginForm() {
+export default function SignUpForm() {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
 
@@ -40,17 +47,20 @@ export default function LoginForm() {
     defaultValues: {
       email: "",
       password: "",
+      name: "",
+      confirmPassword: "",
     },
     onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
+      await authClient.signUp.email(
         {
           email: value.email,
           password: value.password,
+          name: value.name,
         },
         {
           onSuccess: () => {
             navigate("/profile");
-            toast.success("Login successful");
+            toast.success("Sign up successful");
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
@@ -59,7 +69,7 @@ export default function LoginForm() {
       );
     },
     validators: {
-      onSubmit: loginSchema,
+      onSubmit: signUpSchema,
     },
   });
 
@@ -68,25 +78,53 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen p-6">
+    <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height))] p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">
-            Welcome back
+            Create an account
           </CardTitle>
           <CardDescription className="text-center">
-            Log in to continue your journey.
+            Sign up to get started with your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
-            id="login-form"
+            id="sign-up-form"
             onSubmit={(e) => {
               e.preventDefault();
               form.handleSubmit();
             }}
           >
             <FieldGroup>
+              <form.Field
+                name="name"
+                children={(field) => {
+                  const isInvalid =
+                    field.state.meta.isTouched && !field.state.meta.isValid;
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                      <InputGroup variant="secondary">
+                        <InputGroupAddon align="inline-start">
+                          <User />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={isInvalid}
+                        />
+                      </InputGroup>
+                      {isInvalid && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  );
+                }}
+              />
               <form.Field
                 name="email"
                 children={(field) => {
@@ -133,6 +171,35 @@ export default function LoginForm() {
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
                         aria-invalid={isInvalid}
+                      >
+                        <PasswordInputStrengthChecker />
+                      </PasswordInput>
+                      {isInvalid && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  );
+                }}
+              />
+
+              <form.Field
+                name="confirmPassword"
+                children={(field) => {
+                  const isInvalid =
+                    field.state.meta.isTouched && !field.state.meta.isValid;
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>
+                        Confirm Password
+                      </FieldLabel>
+                      <PasswordInput
+                        id={field.name}
+                        name={field.name}
+                        variant="secondary"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={isInvalid}
                       />
                       {isInvalid && (
                         <FieldError errors={field.state.meta.errors} />
@@ -149,16 +216,16 @@ export default function LoginForm() {
             {(state) => (
               <Button
                 type="submit"
-                form="login-form"
+                form="sign-up-form"
                 className="w-full"
                 disabled={!state.canSubmit || state.isSubmitting}
               >
-                {state.isSubmitting ? "Logging in..." : <>Log in to dasboard <ArrowRight/></>}
+                {state.isSubmitting ? "Creating account..." : "Create account"}
               </Button>
             )}
           </form.Subscribe>
-          <Button className="w-full" variant="link" render={<Link to="/sign-up" />}>
-            Don't have an account? Sign up
+          <Button className="w-full" variant="link" render={<Link to="/login" />}>
+            Already have an account? Log in
           </Button>
         </CardFooter>
       </Card>
