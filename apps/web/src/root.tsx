@@ -48,9 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-       <div className="grid grid-rows-[auto_1fr] h-svh">
-          <Outlet />
-        </div>
+        <Outlet />
         <Toaster richColors />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </QueryClientProvider>
