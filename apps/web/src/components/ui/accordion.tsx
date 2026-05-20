@@ -53,8 +53,8 @@ function AccordionTrigger({
 			<AccordionPrimitive.Trigger
 				data-slot="accordion-trigger"
 				className={cn(
-					"group/accordion-trigger no-highlight",
-					"flex flex-1 items-center justify-between px-4 py-4 text-start font-medium text-sm",
+					"group/accordion-trigger uppercase no-highlight",
+					"flex flex-1 items-center justify-between p-5 text-start font-medium text-xs",
 					"cursor-pointer select-none",
 					"group-data-[variant=secondary]:first:rounded-t-3xltransition-none",
 					"hover:bg-foreground/3 aria-expanded:hover:bg-transparent",
@@ -94,7 +94,7 @@ function AccordionContent({
 			<div
 				data-slot="accordion-content-inner"
 				className={cn(
-					"px-4 pt-0 pb-4 text-muted-foreground text-sm",
+					"px-5 pt-0 pb-5 text-muted-foreground text-sm",
 					"[&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
 					className,
 				)}
