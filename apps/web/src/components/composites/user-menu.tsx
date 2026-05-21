@@ -24,7 +24,10 @@ export default function UserMenu() {
 
   if (!session) {
     return (
-        <Button render={<Link to="/sign-in"></Link>}>Sign In</Button>
+        <>
+        <Button variant='ghost' render={<Link to="/login"></Link>}>Login</Button>
+        <Button render={<Link to="/sign-up"></Link>}>Get Started</Button>
+        </>
     );
   }
 
@@ -37,7 +40,9 @@ export default function UserMenu() {
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
+          <DropdownMenuItem onClick={()=>{
+            navigate("/profile")
+          }}>Profile</DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {
