@@ -6,6 +6,8 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
+import cvRoute from "./routes/cv";
+// import "./jobs/cv-timeout";
 
 const app = express();
 
@@ -18,6 +20,8 @@ app.use(
   }),
 );
 
+app.use(express.json());
+
 app.all("/api/auth{/*path}", toNodeHandler(auth));
 
 app.use(
@@ -28,7 +32,8 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use("/cv", cvRoute);
+
 
 app.get("/", (_req, res) => {
   res.status(200).send("OK");
