@@ -1,13 +1,13 @@
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
-import { auth } from "./utils/auth";
+import { auth } from "./shared/auth/auth";
 import { env } from "@careergps/env/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
-import cvRoute from "./routes/cv";
-import "./jobs/cv-timeout";
+import cvRoute from "./modules/cv/routes/restful_route";
+import "./modules/cv/cv-timeout_job";
 
 const app = express();
 

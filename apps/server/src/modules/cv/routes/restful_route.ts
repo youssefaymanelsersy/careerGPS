@@ -1,12 +1,12 @@
 import express  from "express";
 import {Router} from "express";
-import { upload } from "@/lib/multer";
-import { auth } from "@/utils/auth";
+import { upload } from "../multer";
+import { auth } from "@/shared/auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadToCloudinary } from "@/shared/storage/cloudinary";
 import { env } from "@careergps/env/server"; 
 import { z } from "zod";
-import { ParsedCVDataSchema } from "@/schemas/parsedCv";
+import { ParsedCVDataSchema } from "../parsedCv_schema";
 import { eq } from "drizzle-orm"
 import { db } from "@/db";
 import {cv} from "@/db/schema";

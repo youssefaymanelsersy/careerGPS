@@ -8,7 +8,7 @@ import {
     timestamp,
 } from "drizzle-orm/pg-core";
 import { roles } from "./roles";
-import { user } from "./auth";
+import { user } from "../../modules/auth/db/schema";
 
 export const readinessReports = pgTable("readiness_reports", {
     id: uuid("id").defaultRandom().primaryKey(),

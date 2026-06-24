@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, doublePrecision, timestamp , unique } from "drizzle-orm/pg-core";
-import { user } from "./auth";
+import { user } from "../../modules/auth/db/schema";
 
 export const projects = pgTable(
     "projects",

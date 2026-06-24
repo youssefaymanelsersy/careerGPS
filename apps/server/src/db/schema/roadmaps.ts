@@ -2,7 +2,7 @@
 
 import { pgTable, uuid, text, integer } from "drizzle-orm/pg-core";
 import { readinessReports } from "./readiness_reports";
-import { user } from "./auth";
+import { user } from "../../modules/auth/db/schema";
 
 export const roadmaps = pgTable("roadmaps", {
     id: uuid("id").defaultRandom().primaryKey(),

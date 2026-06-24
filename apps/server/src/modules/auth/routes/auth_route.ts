@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../index";
+import { router, publicProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { user } from "@/db/schema";
 

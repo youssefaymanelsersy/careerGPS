@@ -1,10 +1,10 @@
-import { router, protectedProcedure } from "../index";
+import { router, protectedProcedure } from "@/trpc/index";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { eq , desc , and } from "drizzle-orm";
 import { cv } from "@/db/schema";
-import { deleteFromCloudinary } from "@/lib/cloudinary";
+import { deleteFromCloudinary } from "@/shared/storage/cloudinary";
 
 export const cvRouter = router({
   getStatus: protectedProcedure

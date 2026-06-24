@@ -1,6 +1,6 @@
 import { pgTable, text, uuid, numeric, primaryKey } from "drizzle-orm/pg-core";
 import { skills } from "./skills";
-import { user } from "./auth";
+import { user } from "../../modules/auth/db/schema";
 
 export const userSkills = pgTable(
     "user_skills",
