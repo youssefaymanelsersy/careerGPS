@@ -5,6 +5,7 @@ import { readinessRouter } from "./readiness";
 import { roadmapRouter } from "./roadmap";
 import { rolesRouter } from "./roles";
 import { skillsRouter } from "./skills";
+import { cvRouter } from "./cv";
 
 export const appRouter = router({
     auth: authRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
     roadmap: roadmapRouter,
     roles: rolesRouter,
     skills: skillsRouter,
+    cv: cvRouter,
 });
 
 export type AppRouter = typeof appRouter;
