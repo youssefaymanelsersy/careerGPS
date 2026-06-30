@@ -72,6 +72,22 @@ export const ParsedCVDataSchema = z.object({
   links: LinksSchema,
 });
 
+  // make response schema for validation
+export const responseBodySchema = z.discriminatedUnion("status", [
+  z.object({
+    cvId: z.string().uuid(),
+    status: z.literal("completed"),
+    parsedData: ParsedCVDataSchema ,
+  }),
+
+  z.object({
+    cvId: z.string().uuid(),
+    status: z.literal("failed"),
+    errorMessage: z.string(),
+  }),
+]);
+
+
 export type ParsedCVData = z.infer<typeof ParsedCVDataSchema>;
 
 export type Skill = z.infer<typeof SkillSchema>;
@@ -80,3 +96,5 @@ export type Project = z.infer<typeof ProjectSchema>;
 export type Education = z.infer<typeof EducationSchema>;
 export type Certification = z.infer<typeof CertificationSchema>;
 export type Links = z.infer<typeof LinksSchema>;
+export type responseBodySchema = z.infer<typeof responseBodySchema>;
+
