@@ -72,12 +72,20 @@ export const ParsedCVDataSchema = z.object({
   links: LinksSchema,
 });
 
+<<<<<<< HEAD
 // make response schema for validation
+=======
+  // make response schema for validation
+>>>>>>> cc56ec0fffdf9ae0f78ecfeec939e7632c58e1ca
 export const responseBodySchema = z.discriminatedUnion("status", [
   z.object({
     cvId: z.string().uuid(),
     status: z.literal("completed"),
+<<<<<<< HEAD
     parsedData: ParsedCVDataSchema,
+=======
+    parsedData: ParsedCVDataSchema ,
+>>>>>>> cc56ec0fffdf9ae0f78ecfeec939e7632c58e1ca
   }),
 
   z.object({
