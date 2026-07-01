@@ -7,6 +7,9 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
 import cvRoute from "./modules/cv/routes/restful_route";
+import multer, { MulterError } from "multer";
+import type { Request, Response, NextFunction } from "express";
+
 
 const app = express();
 
@@ -32,6 +35,25 @@ app.use(
 );
 
 app.use("/cv", cvRoute);
+app.use(
+  (err: any, req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({
+        success: false,
+        error: err.message,
+      });
+    }
+
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        error: err.message,
+      });
+    }
+
+    next();
+  }
+);
 
 
 app.get("/", (_req, res) => {

@@ -13,8 +13,8 @@ export const SkillsContainerSchema = z
   .default({ technical: [], nonTechnical: [] });
 
 export const ExperienceSchema = z.object({
-  company: z.string().min(1),
-  title: z.string().min(1),
+  company: z.string().min(1).nullable(),
+  title: z.string().min(1).nullable(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
   description: z.string().nullable(),
@@ -30,7 +30,7 @@ export const ProjectSchema = z.object({
 });
 
 export const EducationSchema = z.object({
-  institution: z.string().min(1),
+  institution: z.string().min(1).nullable(),
   degree: z.string().nullable(),
   field: z.string().nullable(),
   major: z.string().nullable(),
@@ -72,12 +72,12 @@ export const ParsedCVDataSchema = z.object({
   links: LinksSchema,
 });
 
-  // make response schema for validation
+// make response schema for validation
 export const responseBodySchema = z.discriminatedUnion("status", [
   z.object({
     cvId: z.string().uuid(),
     status: z.literal("completed"),
-    parsedData: ParsedCVDataSchema ,
+    parsedData: ParsedCVDataSchema,
   }),
 
   z.object({
