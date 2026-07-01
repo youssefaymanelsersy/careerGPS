@@ -1,5 +1,5 @@
-import express  from "express";
-import {Router} from "express";
+import express from "express";
+import { Router } from "express";
 import { upload } from "../multer";
 import { auth } from "@/shared/auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
@@ -24,9 +24,6 @@ async function requireAuth(req: express.Request, res: express.Response, next: ex
     return res.status(401).json({ error: "Unauthorized" });
   }
 }
-
-
-
 
 router.post("/parse", requireAuth, upload.array("file"), async (req, res) => {
   
