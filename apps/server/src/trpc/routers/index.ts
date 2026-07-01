@@ -1,20 +1,21 @@
 import { router } from "../index";
-import { authRouter } from "../../modules/auth/routes/auth_route";
-import { githubRouter } from "./github";
-import { readinessRouter } from "./readiness";
-import { roadmapRouter } from "./roadmap";
-import { rolesRouter } from "./roles";
-import { skillsRouter } from "./skills";
+import { authRouter } from "../../modules/auth/routes/trpc_route";
 import { cvRouter } from "../../modules/cv/routes/trpc_route";
+import { githubRouter } from "../../modules/github/routes/trpc_route";
+import { rolesRouter } from "../../modules/roles/routes/trpc_route";
+import { skillsRouter } from "../../modules/skills/routes/trpc_route";
+import { roadmapRouter } from "../../modules/guidance/routes/roadmap_trpc";
+import { readinessRouter } from "../../modules/guidance/routes/readiness_trpc";
 
 export const appRouter = router({
     auth: authRouter,
+    cv: cvRouter,
     github: githubRouter,
-    readiness: readinessRouter,
-    roadmap: roadmapRouter,
     roles: rolesRouter,
     skills: skillsRouter,
-    cv: cvRouter,
+    roadmap: roadmapRouter,
+    readiness: readinessRouter,
 });
 
 export type AppRouter = typeof appRouter;
+
