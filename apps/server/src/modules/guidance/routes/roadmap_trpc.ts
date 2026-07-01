@@ -3,7 +3,7 @@ import {
     completeRoadmapStep,
     generateLearningRoadmapByRoleName,
 } from "@/modules/guidance/service";
-import { generateSkillPlan } from "@/modules/guidance/ai-planner";
+import { generateSkillPlan, generateInternalRoadmapForStep } from "@/modules/guidance/ai-planner";
 import { router, publicProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { roadmaps } from "@/db/schema";
@@ -66,19 +66,17 @@ export const roadmapRouter = router({
             });
         }),
         
-    aiPlan: publicProcedure
+    generateSkillInternalRoadmap: publicProcedure
         .input(z.object({ 
-            skillName: z.string(), 
-            currentStrength: z.number(), 
-            daysAvailable: z.number().optional(), 
-            minutesPerDay: z.number().optional() 
+            stepId: z.string().uuid(),
+            durationDays: z.number().min(1).max(730).default(14), 
+            dailyMinutes: z.number().min(15).max(720).default(60) 
         }))
         .mutation(async ({ input }) => {
-            return generateSkillPlan({
-                skillName: input.skillName,
-                currentStrength: input.currentStrength,
-                daysAvailable: input.daysAvailable,
-                minutesPerDay: input.minutesPerDay
+            return generateInternalRoadmapForStep({
+                stepId: input.stepId,
+                durationDays: input.durationDays,
+                dailyMinutes: input.dailyMinutes
             });
         }),
 });

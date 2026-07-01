@@ -22,7 +22,15 @@ Authentication is handled by **Better Auth**. The Next.js frontend should use th
 
 Our backend exposes a type-safe tRPC router which should be consumed using the `@trpc/client` or `@trpc/react-query` bindings in the frontend.
 
-### A. Roles (`trpc.roles`)
+### A. Skills (`trpc.skills`)
+Handles querying available skills and user proficiencies.
+
+- **`skills.getAllSkills`**
+  - **Type**: `query`
+  - **Description**: Returns a complete list of all skills defined in the database, ordered alphabetically.
+  - **Returns**: `Array<{ id, name, hasNoDependencies, createdAt }>`
+
+### B. Roles (`trpc.roles`)
 Handles querying available job roles and the skills required for them.
 
 - **`roles.getAllRoles`**
@@ -35,7 +43,7 @@ Handles querying available job roles and the skills required for them.
   - **Input**: `{ roleId: string }`
   - **Description**: Returns all required skills for a specific role.
 
-### B. GitHub Integration (`trpc.github`)
+### C. GitHub Integration (`trpc.github`)
 Handles connecting the user's GitHub account and inferring skills from their repositories.
 
 - **`github.syncProjects`**
@@ -47,7 +55,7 @@ Handles connecting the user's GitHub account and inferring skills from their rep
   - **Input**: `{ title, description, skillsUsed: string[], repoUrl?: string }`
   - **Description**: Allows the user to manually submit a private or enterprise project to get credit for skills that cannot be inferred from public GitHub repositories.
 
-### C. Readiness Gamification (`trpc.readiness`)
+### D. Readiness Gamification (`trpc.readiness`)
 Handles evaluating the user's progress against a specific role.
 
 - **`readiness.evaluateRole`**
@@ -66,21 +74,27 @@ Handles evaluating the user's progress against a specific role.
   - **Input**: `{ roleId?: string, limit?: number }`
   - **Description**: Returns the top developers ranked by their readiness score and activity score.
 
-### D. Guidance & Roadmaps (`trpc.roadmap`)
+### E. Guidance & Roadmaps (`trpc.roadmap`)
 Handles generating and progressing through the AI-generated learning syllabus.
 
 - **`roadmap.generateLearningRoadmap`**
   - **Type**: `mutation`
   - **Input**: `{ roleId: string }`
-  - **Description**: Analyzes the user's `skillGapResult` and generates a step-by-step learning syllabus (roadmap). If an active roadmap already exists for the role, it returns the existing one to prevent progress loss.
+  - **Description**: Analyzes the user's `skillGapResult` and generates a high-level learning syllabus (roadmap). If an active roadmap already exists for the role, it returns the existing one.
   - **Returns**: `{ roadmapId, totalSteps, steps: Array<{ step, skill, priority }> }`
+
+- **`roadmap.generateSkillInternalRoadmap`**
+  - **Type**: `mutation`
+  - **Input**: `{ stepId: string, durationDays?: number, dailyMinutes?: number }`
+  - **Description**: Uses the HuggingFace API to break down a high-level step (e.g. "TypeScript") into a detailed daily plan. The backend caches results globally so that any two users with the same skill, proficiency level, and requested duration/minutes get the exact same roadmap instantly without triggering redundant LLM generation!
+  - **Returns**: `{ goal, duration_days, milestones, first_week_plan }`
 
 - **`roadmap.completeStep`**
   - **Type**: `mutation`
   - **Input**: `{ roadmapId: string, stepId: string }`
   - **Description**: Marks a specific step in the roadmap as completed. **Instantly boosts the user's skill strength** in the database and re-evaluates their readiness score in real-time.
 
-### E. Resumes / CV (`trpc.cv`)
+### F. Resumes / CV (`trpc.cv`)
 Handles CV parsing and AI evaluation.
 
 - **`cv.upload`**

@@ -137,3 +137,4 @@ router.post("/parse", requireAuth, upload.array("file"), async (req, res) => {
   }
 
 });
+export default router;

@@ -6,7 +6,7 @@ import { githubStats, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export const githubRouter = router({
-    sync: publicProcedure
+    syncProjects: publicProcedure
         .input(
             z.object({
                 userId: z.string(),
@@ -66,3 +66,5 @@ export const githubRouter = router({
             .returning();
         }),
 });
+
+export default githubRouter;

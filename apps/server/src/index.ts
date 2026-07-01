@@ -7,7 +7,6 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
 import cvRoute from "./modules/cv/routes/restful_route";
-import "./modules/cv/cv-timeout_job";
 
 const app = express();
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure } from "@/trpc/index";
+import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { skills, skillDependencies, userSkills, user } from "@/db/schema";
 import { addManualSkill } from "@/modules/skills/service";
@@ -7,7 +7,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const skillsRouter = router({
-    create: publicProcedure
+    create: protectedProcedure
         .input(
             z.object({
                 name: z.string().trim().min(1),
@@ -133,16 +133,16 @@ export const skillsRouter = router({
             });
         }),
 
-    addUserSkill: publicProcedure
+    addUserSkill: protectedProcedure
         .input(
             z.object({
-                userId: z.string().trim().min(1),
                 skillId: z.string().uuid(),
                 strengthScore: z.number(),
             })
         )
-        .mutation(async ({ input }) => {
-            const { userId, skillId } = input;
+        .mutation(async ({ input, ctx }) => {
+            const { skillId } = input;
+            const userId = ctx.session.user.id;
             const strengthScore = clampStrength(input.strengthScore);
 
             const existingUser = await db.query.user.findFirst({
@@ -198,15 +198,14 @@ export const skillsRouter = router({
             };
         }),
 
-    updateUserSkill: publicProcedure
+    updateUserSkill: protectedProcedure
         .input(
             z.object({
-                userId: z.string().trim().min(1),
                 skillId: z.string().uuid(),
                 strengthScore: z.number(),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
             const strengthScore = clampStrength(input.strengthScore);
 
             const updated = await db
@@ -216,7 +215,7 @@ export const skillsRouter = router({
                 })
                 .where(
                     and(
-                        eq(userSkills.userId, input.userId),
+                        eq(userSkills.userId, ctx.session.user.id),
                         eq(userSkills.skillId, input.skillId)
                     )
                 )
@@ -232,19 +231,15 @@ export const skillsRouter = router({
             }
 
             return {
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 skillId: input.skillId,
                 strengthScore,
             };
         }),
 
-    getUserSkills: publicProcedure
-        .input(
-            z.object({
-                userId: z.string().trim().min(1),
-            })
-        )
-        .query(async ({ input }) => {
+    getUserSkills: protectedProcedure
+        .query(async ({ ctx }) => {
+            const userId = ctx.session.user.id;
             const rows = await db
                 .select({
                     userId: userSkills.userId,
@@ -254,7 +249,7 @@ export const skillsRouter = router({
                 })
                 .from(userSkills)
                 .innerJoin(skills, eq(skills.id, userSkills.skillId))
-                .where(eq(userSkills.userId, input.userId));
+                .where(eq(userSkills.userId, userId));
 
             return rows.map((row) => ({
                 userId: row.userId,
@@ -264,24 +259,23 @@ export const skillsRouter = router({
             }));
         }),
         
-    getAllSkills: publicProcedure
+    getAllSkills: protectedProcedure
         .query(async () => {
             return db.query.skills.findMany({
                 orderBy: (skills, { asc }) => [asc(skills.name)],
             });
         }),
 
-    addManualSkill: publicProcedure
+    addManualSkill: protectedProcedure
         .input(
             z.object({
-                userId: z.string().trim().min(1),
                 skillName: z.string().trim().min(1),
                 level: z.enum(["beginner", "intermediate", "expert"]),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
             return addManualSkill({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 skillName: input.skillName,
                 level: input.level
             });

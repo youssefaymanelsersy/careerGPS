@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { user } from "../../auth/db/schema";
 import { roles } from "../../roles/db/schema";
@@ -23,6 +23,20 @@ export const roadmaps = pgTable("roadmaps", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const cachedInternalRoadmaps = pgTable("cached_internal_roadmaps", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    skillId: uuid("skill_id")
+        .notNull()
+        .references(() => skills.id, { onDelete: "cascade" }),
+    level: text("level").notNull(),
+    durationDays: numeric("duration_days").notNull(),
+    dailyMinutes: numeric("daily_minutes").notNull(),
+    roadmapData: jsonb("roadmap_data").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+    unq: uniqueIndex("cached_internal_roadmap_unq").on(table.skillId, table.level, table.durationDays, table.dailyMinutes)
+}));
+
 export const roadmapSteps = pgTable("roadmap_steps", {
     id: uuid("id").defaultRandom().primaryKey(),
     roadmapId: uuid("roadmap_id")
@@ -38,6 +52,9 @@ export const roadmapSteps = pgTable("roadmap_steps", {
 
     status: text("status").notNull().default("pending"), 
     orderIndex: numeric("order_index").notNull(),
+
+    cachedRoadmapId: uuid("cached_roadmap_id")
+        .references(() => cachedInternalRoadmaps.id, { onDelete: "set null" }),
 
     completedAt: timestamp("completed_at"),
 });
