@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { evaluateUserForRoleName } from "@/modules/roles/service";
-import { router, publicProcedure } from "@/trpc/index";
+import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { readinessReports, skillGapResults } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
@@ -9,31 +9,29 @@ import { githubStats } from "@/db/schema";
 import { calculateTier } from "@/modules/guidance/gamification";
 
 export const readinessRouter = router({
-    generate: publicProcedure
+    generate: protectedProcedure
         .input(
             z.object({
-                userId: z.string(),
                 roleName: z.string(),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             return evaluateUserForRoleName({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 roleName: input.roleName,
             });
         }),
 
-    getLatestReport: publicProcedure
+    getLatestReport: protectedProcedure
         .input(
             z.object({
-                userId: z.string(),
                 roleId: z.string(),
             })
         )
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
             const report = await db.query.readinessReports.findFirst({
                 where: and(
-                    eq(readinessReports.userId, input.userId),
+                    eq(readinessReports.userId, ctx.session.user.id),
                     eq(readinessReports.roleId, input.roleId)
                 ),
                 orderBy: desc(readinessReports.createdAt),
@@ -41,7 +39,7 @@ export const readinessRouter = router({
             
             const gaps = await db.query.skillGapResults.findFirst({
                 where: and(
-                    eq(skillGapResults.userId, input.userId),
+                    eq(skillGapResults.userId, ctx.session.user.id),
                     eq(skillGapResults.roleId, input.roleId)
                 ),
                 orderBy: desc(skillGapResults.createdAt),
@@ -53,7 +51,7 @@ export const readinessRouter = router({
             };
         }),
 
-    getGlobalLeaderboard: publicProcedure
+    getGlobalLeaderboard: protectedProcedure
         .input(z.object({ limit: z.number().default(10) }))
         .query(async ({ input }) => {
             const reports = await db
@@ -96,7 +94,7 @@ export const readinessRouter = router({
             return leaderboard;
         }),
 
-    getRoleLeaderboard: publicProcedure
+    getRoleLeaderboard: protectedProcedure
         .input(z.object({ roleId: z.string().uuid(), limit: z.number().default(10) }))
         .query(async ({ input }) => {
             const reports = await db

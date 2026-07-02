@@ -3,23 +3,22 @@ import {
     completeRoadmapStep,
     generateLearningRoadmapByRoleName,
 } from "@/modules/guidance/service";
-import { generateSkillPlan, generateInternalRoadmapForStep } from "@/modules/guidance/ai-planner";
-import { router, publicProcedure } from "@/trpc/index";
+import { generateInternalRoadmapForStep } from "@/modules/guidance/ai-planner";
+import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { roadmaps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export const roadmapRouter = router({
-    generate: publicProcedure
+    generate: protectedProcedure
         .input(
             z.object({
-                userId: z.string(),
                 roleName: z.string(),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const result = await generateLearningRoadmapByRoleName({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 roleName: input.roleName,
             });
 
@@ -33,26 +32,25 @@ export const roadmapRouter = router({
             };
         }),
 
-    completeStep: publicProcedure
+    completeStep: protectedProcedure
         .input(
             z.object({
-                userId: z.string(),
                 stepId: z.string().uuid(),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             return completeRoadmapStep({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 stepId: input.stepId,
             });
         }),
 
-    getActiveRoadmap: publicProcedure
-        .input(z.object({ userId: z.string(), roleId: z.string() }))
-        .query(async ({ input }) => {
+    getActiveRoadmap: protectedProcedure
+        .input(z.object({ roleId: z.string() }))
+        .query(async ({ ctx, input }) => {
             return db.query.roadmaps.findFirst({
                 where: and(
-                    eq(roadmaps.userId, input.userId),
+                    eq(roadmaps.userId, ctx.session.user.id),
                     eq(roadmaps.roleId, input.roleId),
                     eq(roadmaps.isActive, true)
                 ),
@@ -66,7 +64,7 @@ export const roadmapRouter = router({
             });
         }),
         
-    generateSkillInternalRoadmap: publicProcedure
+    generateSkillInternalRoadmap: protectedProcedure
         .input(z.object({ 
             stepId: z.string().uuid(),
             durationDays: z.number().min(1).max(730).default(14), 
