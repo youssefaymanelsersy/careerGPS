@@ -6,8 +6,9 @@ import {
 import { generateInternalRoadmapForStep } from "@/modules/roadmap/ai-planner";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roadmaps } from "@/db/schema";
+import { roadmaps, roadmapSteps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
 export const roadmapRouter = router({
     generate: protectedProcedure
@@ -64,6 +65,36 @@ export const roadmapRouter = router({
             });
         }),
         
+    getUserRoadmaps: protectedProcedure
+        .query(async ({ ctx }) => {
+            return db.query.roadmaps.findMany({
+                where: eq(roadmaps.userId, ctx.session.user.id),
+                with: {
+                    steps: {
+                        with: {
+                            skill: true
+                        }
+                    }
+                }
+            });
+        }),
+
+    deleteUserRoadmap: protectedProcedure
+        .input(z.object({ roadmapId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+            const deleted = await db.delete(roadmaps)
+                .where(and(
+                    eq(roadmaps.id, input.roadmapId),
+                    eq(roadmaps.userId, ctx.session.user.id)
+                ))
+                .returning();
+            
+            if (!deleted[0]) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Roadmap not found or not owned by user" });
+            }
+            return { success: true };
+        }),
+
     generateSkillInternalRoadmap: protectedProcedure
         .input(z.object({ 
             stepId: z.string().uuid(),
@@ -76,5 +107,40 @@ export const roadmapRouter = router({
                 durationDays: input.durationDays,
                 dailyMinutes: input.dailyMinutes
             });
+        }),
+
+    completeInternalStep: protectedProcedure
+        .input(z.object({
+            stepId: z.string().uuid(),
+            internalStepId: z.string()
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const step = await db.query.roadmapSteps.findFirst({
+                where: eq(roadmapSteps.id, input.stepId),
+                with: {
+                    roadmap: true
+                }
+            });
+
+            if (!step || step.roadmap.userId !== ctx.session.user.id) {
+                throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: "Roadmap step not found",
+                });
+            }
+
+            const currentCompleted = Array.isArray(step.completedInternalSteps) 
+                ? (step.completedInternalSteps as string[]) 
+                : [];
+
+            if (!currentCompleted.includes(input.internalStepId)) {
+                currentCompleted.push(input.internalStepId);
+                
+                await db.update(roadmapSteps)
+                    .set({ completedInternalSteps: currentCompleted })
+                    .where(eq(roadmapSteps.id, input.stepId));
+            }
+
+            return { success: true, completedInternalSteps: currentCompleted };
         }),
 });

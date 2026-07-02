@@ -50,6 +50,22 @@ export const readinessRouter = router({
                 gaps
             };
         }),
+        
+    getUserReportsHistory: protectedProcedure
+        .input(
+            z.object({
+                roleId: z.string(),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            return db.query.readinessReports.findMany({
+                where: and(
+                    eq(readinessReports.userId, ctx.session.user.id),
+                    eq(readinessReports.roleId, input.roleId)
+                ),
+                orderBy: desc(readinessReports.createdAt),
+            });
+        }),
 
     getGlobalLeaderboard: protectedProcedure
         .input(z.object({ limit: z.number().default(10) }))

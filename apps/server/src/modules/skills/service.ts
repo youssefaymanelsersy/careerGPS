@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -185,153 +185,166 @@ export async function syncGithubSkillsForUser({
         activityScore,
     } = skillMapData;
 
-    const allSkills = await db.select().from(skills);
+    return await db.transaction(async (tx) => {
+        const allExtractedSkillNames = new Set<string>();
+        for (const skillName of combinedSkillStrengths.keys()) {
+            allExtractedSkillNames.add(normalizeSkillName(skillName));
+        }
+        for (const repoName of repoLanguages.keys()) {
+            const names = extractRepoSkillNames(repoLanguages.get(repoName));
+            for (const name of names) {
+                allExtractedSkillNames.add(normalizeSkillName(name));
+            }
+        }
 
-    let skillsByNormalizedName = new Map<
-        string,
-        Array<(typeof allSkills)[number]>
-    >();
+        const requiredSkillNames = Array.from(allExtractedSkillNames);
 
-    for (const skill of allSkills) {
-        const key = normalizeSkillName(skill.name);
-        const bucket = skillsByNormalizedName.get(key) ?? [];
-        bucket.push(skill);
-        skillsByNormalizedName.set(key, bucket);
-    }
+        const existingSkills = requiredSkillNames.length > 0 
+            ? await tx.select().from(skills).where(inArray(skills.name, requiredSkillNames)) 
+            : [];
 
-    const normalizedInferredSkillNames = new Set(
-        [...combinedSkillStrengths.keys()].map((skill) => normalizeSkillName(skill))
-    );
-
-    const missingNormalizedSkillNames = [...normalizedInferredSkillNames].filter(
-        (normalizedName) => !skillsByNormalizedName.has(normalizedName)
-    );
-
-    if (missingNormalizedSkillNames.length > 0) {
-        await db
-            .insert(skills)
-            .values(
-                missingNormalizedSkillNames.map((name) => ({
-                    name,
-                    hasNoDependencies: true,
-                }))
-            )
-            .onConflictDoNothing();
-
-        const refreshedSkills = await db.select().from(skills);
-        skillsByNormalizedName = new Map();
-
-        for (const skill of refreshedSkills) {
+        let skillsByNormalizedName = new Map<string, Array<(typeof existingSkills)[number]>>();
+        
+        for (const skill of existingSkills) {
             const key = normalizeSkillName(skill.name);
             const bucket = skillsByNormalizedName.get(key) ?? [];
             bucket.push(skill);
             skillsByNormalizedName.set(key, bucket);
         }
-    }
 
-    for (const contribution of contributions.values()) {
-        const complexityScore = calculateContributionComplexity(contribution);
+        const missingNormalizedSkillNames = requiredSkillNames.filter(
+            (normalizedName) => !skillsByNormalizedName.has(normalizedName)
+        );
 
-        const [project] = await db
-            .insert(projects)
-            .values({
+        if (missingNormalizedSkillNames.length > 0) {
+            const newSkillsData = missingNormalizedSkillNames.map((name) => ({
+                name,
+                hasNoDependencies: true,
+            }));
+            
+            await tx.insert(skills).values(newSkillsData).onConflictDoNothing();
+
+            const refreshedSkills = await tx.select().from(skills)
+                .where(inArray(skills.name, missingNormalizedSkillNames));
+
+            for (const skill of refreshedSkills) {
+                const key = normalizeSkillName(skill.name);
+                const bucket = skillsByNormalizedName.get(key) ?? [];
+                bucket.push(skill);
+                skillsByNormalizedName.set(key, bucket);
+            }
+        }
+
+        const projectValues = [];
+        for (const contribution of contributions.values()) {
+            projectValues.push({
                 userId,
                 title: contribution.repoName,
                 description: "",
                 source: "github",
-                complexityScore,
-            })
-            .onConflictDoUpdate({
-                target: [projects.userId, projects.title],
-                set: { complexityScore },
-            })
-            .returning();
+                complexityScore: calculateContributionComplexity(contribution),
+            });
+        }
 
-        if (!project) continue;
+        let upsertedProjects: { id: string; title: string }[] = [];
+        if (projectValues.length > 0) {
+            upsertedProjects = await tx
+                .insert(projects)
+                .values(projectValues)
+                .onConflictDoUpdate({
+                    target: [projects.userId, projects.title],
+                    set: { complexityScore: sql`EXCLUDED.complexity_score` },
+                })
+                .returning();
+        }
 
-        const repoSkillNames = extractRepoSkillNames(
-            repoLanguages.get(contribution.repoName)
+        const projectSkillsToInsert = [];
+        for (const project of upsertedProjects) {
+            const repoSkillNames = extractRepoSkillNames(repoLanguages.get(project.title));
+
+            for (const name of repoSkillNames) {
+                const normalized = normalizeSkillName(name);
+                const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
+
+                for (const skill of matchedSkills) {
+                    projectSkillsToInsert.push({
+                        projectId: project.id,
+                        skillId: skill.id,
+                    });
+                }
+            }
+        }
+
+        if (projectSkillsToInsert.length > 0) {
+            await tx.insert(projectSkills).values(projectSkillsToInsert).onConflictDoNothing();
+        }
+
+        const existingUserSkills = await tx.query.userSkills.findMany({
+            where: eq(userSkills.userId, userId),
+        });
+
+        const existingStrengthMap = new Map(
+            existingUserSkills.map(s => [s.skillId, Number(s.strengthScore)])
         );
 
-        for (const name of repoSkillNames) {
-            const normalized = normalizeSkillName(name);
+        const userSkillsToUpsert = [];
+        for (const [skillName, strength] of combinedSkillStrengths) {
+            const normalized = normalizeSkillName(skillName);
             const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
 
             for (const skill of matchedSkills) {
-                await db
-                    .insert(projectSkills)
-                    .values({
-                        projectId: project.id,
-                        skillId: skill.id,
-                    })
-                    .onConflictDoNothing();
-            }
-        }
-    }
+                const githubStrength = Number(strength.toFixed(2));
+                const existingStrength = existingStrengthMap.get(skill.id) ?? 0;
+                const mergedStrength = Math.max(existingStrength, githubStrength);
 
-    for (const [skillName, strength] of combinedSkillStrengths) {
-        const normalized = normalizeSkillName(skillName);
-        const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
-
-        for (const skill of matchedSkills) {
-            const githubStrength = Number(strength.toFixed(2));
-
-            const existingUserSkill = await db.query.userSkills.findFirst({
-                where: and(
-                    eq(userSkills.userId, userId),
-                    eq(userSkills.skillId, skill.id)
-                ),
-            });
-
-            const existingStrength = existingUserSkill
-                ? Number(existingUserSkill.strengthScore)
-                : 0;
-
-            const mergedStrength = Math.max(existingStrength, githubStrength);
-
-            await db
-                .insert(userSkills)
-                .values({
+                userSkillsToUpsert.push({
                     userId,
                     skillId: skill.id,
                     strengthScore: mergedStrength.toFixed(2),
-                })
+                });
+            }
+        }
+
+        if (userSkillsToUpsert.length > 0) {
+            await tx
+                .insert(userSkills)
+                .values(userSkillsToUpsert)
                 .onConflictDoUpdate({
                     target: [userSkills.userId, userSkills.skillId],
-                    set: { strengthScore: mergedStrength.toFixed(2) },
+                    set: { strengthScore: sql`EXCLUDED.strength_score` },
                 });
         }
-    }
 
-    const totalStars = repos.reduce(
-        (sum, repo) => sum + (repo.stargazers_count ?? 0),
-        0
-    );
+        const totalStars = repos.reduce(
+            (sum, repo) => sum + (repo.stargazers_count ?? 0),
+            0
+        );
 
-    const reposCount = Math.max(repos.length, contributions.size);
+        const reposCount = Math.max(repos.length, contributions.size);
 
-    await db
-        .insert(githubStats)
-        .values({
-            userId,
-            username: githubUsername,
-            reposCount,
-            totalStars,
-            activityScore: activityScore.toString(),
-        })
-        .onConflictDoUpdate({
-            target: githubStats.userId,
-            set: {
+        await tx
+            .insert(githubStats)
+            .values({
+                userId,
+                username: githubUsername,
                 reposCount,
                 totalStars,
                 activityScore: activityScore.toString(),
-            },
-        });
+            })
+            .onConflictDoUpdate({
+                target: githubStats.userId,
+                set: {
+                    reposCount,
+                    totalStars,
+                    activityScore: activityScore.toString(),
+                },
+            });
 
-    return {
-        repoCount: reposCount,
-        activityScore,
-    };
+        return {
+            repoCount: reposCount,
+            activityScore,
+        };
+    });
 }
 
 function selectTopRepoNamesForDependencyAnalysis({
@@ -461,4 +474,95 @@ export async function addManualSkill({
         level,
         strengthScore: newStrength
     };
+}
+
+export async function bulkAddManualSkills({
+    userId,
+    skillsList,
+}: {
+    userId: string;
+    skillsList: Array<{ name: string; level: "beginner" | "intermediate" | "expert" }>;
+}) {
+    const allSkills = await db.select().from(skills);
+
+    let skillsByNormalizedName = new Map<
+        string,
+        Array<(typeof allSkills)[number]>
+    >();
+
+    for (const skill of allSkills) {
+        const key = normalizeSkillName(skill.name);
+        const bucket = skillsByNormalizedName.get(key) ?? [];
+        bucket.push(skill);
+        skillsByNormalizedName.set(key, bucket);
+    }
+
+    const uniqueInput = new Map<string, "beginner" | "intermediate" | "expert">();
+    for (const s of skillsList) {
+        uniqueInput.set(normalizeSkillName(s.name), s.level);
+    }
+
+    const missingNormalizedSkillNames = [...uniqueInput.keys()].filter(
+        (normalizedName) => !skillsByNormalizedName.has(normalizedName)
+    );
+
+    if (missingNormalizedSkillNames.length > 0) {
+        await db
+            .insert(skills)
+            .values(
+                missingNormalizedSkillNames.map((name) => ({
+                    name,
+                    hasNoDependencies: true,
+                }))
+            )
+            .onConflictDoNothing();
+
+        const refreshedSkills = await db.select().from(skills);
+        skillsByNormalizedName = new Map();
+
+        for (const skill of refreshedSkills) {
+            const key = normalizeSkillName(skill.name);
+            const bucket = skillsByNormalizedName.get(key) ?? [];
+            bucket.push(skill);
+            skillsByNormalizedName.set(key, bucket);
+        }
+    }
+
+    const levelScores = {
+        beginner: 30,
+        intermediate: 60,
+        expert: 90,
+    };
+
+    const existingUserSkills = await db.query.userSkills.findMany({
+        where: eq(userSkills.userId, userId),
+    });
+
+    const existingStrengthMap = new Map(
+        existingUserSkills.map(s => [s.skillId, Number(s.strengthScore)])
+    );
+
+    for (const [normalizedName, level] of uniqueInput) {
+        const matchedSkills = skillsByNormalizedName.get(normalizedName) ?? [];
+        const baseScore = levelScores[level] ?? 30;
+
+        for (const skill of matchedSkills) {
+            const existingStrength = existingStrengthMap.get(skill.id) ?? 0;
+            const newStrength = Math.max(existingStrength, baseScore);
+
+            await db
+                .insert(userSkills)
+                .values({
+                    userId,
+                    skillId: skill.id,
+                    strengthScore: newStrength.toString(),
+                })
+                .onConflictDoUpdate({
+                    target: [userSkills.userId, userSkills.skillId],
+                    set: { strengthScore: newStrength.toString() },
+                });
+        }
+    }
+
+    return { success: true };
 }

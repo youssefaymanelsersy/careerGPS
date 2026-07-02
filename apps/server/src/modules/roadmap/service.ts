@@ -191,37 +191,7 @@ async function generateLearningRoadmapInternal({
         });
     }
 
-    // Infinite Loop Fix
-    // Instead of unconditionally deleting roadmaps, we check if an active one exists.
-    // This prevents regenerating the exact same roadmap if the user hasn't crossed the 
-    // weak threshold for a recently completed step.
-    const existingActiveRoadmap = await db.query.roadmaps.findFirst({
-        where: and(eq(roadmaps.userId, userId), eq(roadmaps.roleId, roleId), eq(roadmaps.isActive, true)),
-        with: {
-            steps: {
-                with: {
-                    skill: true
-                }
-            }
-        }
-    });
 
-    if (existingActiveRoadmap) {
-        return {
-            roadmapId: existingActiveRoadmap.id,
-            totalSteps: existingActiveRoadmap.steps.length,
-            steps: existingActiveRoadmap.steps.sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex)).map(step => ({
-                step: Number(step.orderIndex),
-                skill: step.skill.name,
-                priority: "medium", // Defaulting for existing roadmap structure
-            })),
-            roadmap: existingActiveRoadmap.steps.sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex)).map(step => ({
-                step: Number(step.orderIndex),
-                skill: step.skill.name,
-                priority: "medium", 
-            })),
-        };
-    }
 
     // Clean up old inactive roadmaps before creating a new one
     await db

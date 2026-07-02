@@ -56,6 +56,8 @@ export const roadmapSteps = pgTable("roadmap_steps", {
     cachedRoadmapId: uuid("cached_roadmap_id")
         .references(() => cachedInternalRoadmaps.id, { onDelete: "set null" }),
 
+    completedInternalSteps: jsonb("completed_internal_steps").default('[]').notNull(), //to be edited
+
     completedAt: timestamp("completed_at"),
 });
 

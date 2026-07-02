@@ -121,9 +121,11 @@ export async function generateInternalRoadmapForStep({
         }).returning();
 
         // 6. Link to user's step
-        await db.update(roadmapSteps)
-            .set({ cachedRoadmapId: insertedCache.id })
-            .where(eq(roadmapSteps.id, stepId));
+        if (insertedCache) {
+            await db.update(roadmapSteps)
+                .set({ cachedRoadmapId: insertedCache.id })
+                .where(eq(roadmapSteps.id, stepId));
+        }
 
         return roadmapData;
         

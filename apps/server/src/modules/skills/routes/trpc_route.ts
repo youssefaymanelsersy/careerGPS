@@ -2,8 +2,8 @@ import { z } from "zod";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { skills, skillDependencies, userSkills, user } from "@/db/schema";
-import { addManualSkill } from "@/modules/skills/service";
-import { and, eq, inArray } from "drizzle-orm";
+import { addManualSkill, bulkAddManualSkills } from "@/modules/skills/service";
+import { and, eq, inArray, ilike, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const skillsRouter = router({
@@ -237,6 +237,33 @@ export const skillsRouter = router({
             };
         }),
 
+    removeUserSkill: protectedProcedure
+        .input(
+            z.object({
+                skillId: z.string().uuid(),
+            })
+        )
+        .mutation(async ({ input, ctx }) => {
+            const deleted = await db
+                .delete(userSkills)
+                .where(
+                    and(
+                        eq(userSkills.userId, ctx.session.user.id),
+                        eq(userSkills.skillId, input.skillId)
+                    )
+                )
+                .returning();
+
+            if (deleted.length === 0) {
+                throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: "User skill not found",
+                });
+            }
+
+            return { success: true };
+        }),
+
     getUserSkills: protectedProcedure
         .query(async ({ ctx }) => {
             const userId = ctx.session.user.id;
@@ -260,10 +287,34 @@ export const skillsRouter = router({
         }),
         
     getAllSkills: protectedProcedure
-        .query(async () => {
-            return db.query.skills.findMany({
-                orderBy: (skills, { asc }) => [asc(skills.name)],
-            });
+        .input(z.object({
+            limit: z.number().min(1).max(100).default(50),
+            cursor: z.number().default(0),
+            search: z.string().optional(),
+        }).optional())
+        .query(async ({ input }) => {
+            const limit = input?.limit ?? 50;
+            const offset = input?.cursor ?? 0;
+            const search = input?.search;
+
+            let conditions = search ? ilike(skills.name, `%${search}%`) : undefined;
+
+            const items = await db.select().from(skills)
+                .where(conditions)
+                .orderBy(asc(skills.name))
+                .limit(limit + 1)
+                .offset(offset);
+            
+            let nextCursor: typeof offset | undefined = undefined;
+            if (items.length > limit) {
+                items.pop();
+                nextCursor = offset + limit;
+            }
+
+            return {
+                items,
+                nextCursor,
+            };
         }),
 
     addManualSkill: protectedProcedure
@@ -278,6 +329,22 @@ export const skillsRouter = router({
                 userId: ctx.session.user.id,
                 skillName: input.skillName,
                 level: input.level
+            });
+        }),
+
+    bulkSaveUserSkills: protectedProcedure
+        .input(
+            z.object({
+                skills: z.array(z.object({
+                    name: z.string().trim().min(1),
+                    level: z.enum(["beginner", "intermediate", "expert"]),
+                }))
+            })
+        )
+        .mutation(async ({ input, ctx }) => {
+            return bulkAddManualSkills({
+                userId: ctx.session.user.id,
+                skillsList: input.skills
             });
         }),
 });

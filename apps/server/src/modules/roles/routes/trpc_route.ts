@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roles, roleSkills, skills, user } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { roles, roleSkills, skills, user, roadmaps } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const rolesRouter = router({
@@ -93,6 +93,17 @@ export const rolesRouter = router({
             return roleSkill;
         }),
 
+    getRoleSkills: protectedProcedure
+        .input(z.object({ roleId: z.string().uuid() }))
+        .query(async ({ input }) => {
+            return db.query.roleSkills.findMany({
+                where: eq(roleSkills.roleId, input.roleId),
+                with: {
+                    skill: true
+                }
+            });
+        }),
+
     getAllRoles: protectedProcedure
         .query(async () => {
             return db.query.roles.findMany({
@@ -103,19 +114,33 @@ export const rolesRouter = router({
     setUserRole: protectedProcedure
         .input(z.object({ roleId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => {
-            const updated = await db
-                .update(user)
-                .set({ roleId: input.roleId })
-                .where(eq(user.id, ctx.session.user.id))
-                .returning();
-            
-            if (!updated[0]) {
-                throw new TRPCError({
-                    code: "INTERNAL_SERVER_ERROR",
-                    message: "Failed to update user role",
-                });
-            }
-            return updated[0];
+            return await db.transaction(async (tx) => {
+                const updated = await tx
+                    .update(user)
+                    .set({ roleId: input.roleId })
+                    .where(eq(user.id, ctx.session.user.id))
+                    .returning();
+                
+                if (!updated[0]) {
+                    throw new TRPCError({
+                        code: "INTERNAL_SERVER_ERROR",
+                        message: "Failed to update user role",
+                    });
+                }
+
+                await tx.update(roadmaps)
+                    .set({ isActive: false })
+                    .where(eq(roadmaps.userId, ctx.session.user.id));
+
+                await tx.update(roadmaps)
+                    .set({ isActive: true })
+                    .where(and(
+                        eq(roadmaps.userId, ctx.session.user.id),
+                        eq(roadmaps.roleId, input.roleId)
+                    ));
+
+                return updated[0];
+            });
         }),
 
     getRoleById: protectedProcedure
