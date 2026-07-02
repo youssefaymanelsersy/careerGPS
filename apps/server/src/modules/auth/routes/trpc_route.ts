@@ -43,4 +43,5 @@ export const authRouter = router({
 
             return createdUser;
         }),
+
 });

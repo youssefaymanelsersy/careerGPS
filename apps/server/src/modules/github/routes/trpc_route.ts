@@ -1,56 +1,52 @@
 import { z } from "zod";
 import { syncGithubSkillsForUser } from "@/modules/skills/service";
-import { publicProcedure, router } from "@/trpc/index";
+import { protectedProcedure, router } from "@/trpc/index";
 import { db } from "@/db";
 import { githubStats, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export const githubRouter = router({
-    syncProjects: publicProcedure
+    syncProjects: protectedProcedure
         .input(
             z.object({
-                userId: z.string(),
                 username: z.string(),
             })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             return syncGithubSkillsForUser({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 githubUsername: input.username,
             });
         }),
 
-    getStats: publicProcedure
-        .input(z.object({ userId: z.string() }))
-        .query(async ({ input }) => {
+    getStats: protectedProcedure
+        .query(async ({ ctx }) => {
             return db.query.githubStats.findFirst({
-                where: eq(githubStats.userId, input.userId)
+                where: eq(githubStats.userId, ctx.session.user.id)
             });
         }),
         
-    getProjects: publicProcedure
-        .input(z.object({ userId: z.string() }))
-        .query(async ({ input }) => {
+    getProjects: protectedProcedure
+        .query(async ({ ctx }) => {
             return db.query.projects.findMany({
-                where: eq(projects.userId, input.userId),
+                where: eq(projects.userId, ctx.session.user.id),
                 orderBy: desc(projects.complexityScore)
             });
         }),
         
-    addManualProject: publicProcedure
+    addManualProject: protectedProcedure
         .input(z.object({
-            userId: z.string(),
             title: z.string().min(1),
             description: z.string().optional(),
             complexityLevel: z.enum(["simple", "moderate", "complex"])
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             let score = 5;
             if (input.complexityLevel === "moderate") score = 15;
             if (input.complexityLevel === "complex") score = 30;
             
             return db.insert(projects).values({
-                userId: input.userId,
+                userId: ctx.session.user.id,
                 title: input.title,
                 description: input.description || "",
                 source: "manual",

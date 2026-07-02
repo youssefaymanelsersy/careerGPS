@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { router, publicProcedure } from "@/trpc/index";
+import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roles, roleSkills, skills } from "@/db/schema";
+import { roles, roleSkills, skills, user } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const rolesRouter = router({
-    create: publicProcedure
+    create: protectedProcedure
         .input(
             z.object({
                 title: z.string().trim().min(1),
@@ -37,7 +37,7 @@ export const rolesRouter = router({
             return role;
         }),
 
-    addSkill: publicProcedure
+    addSkill: protectedProcedure
         .input(
             z.object({
                 roleId: z.string().uuid(),
@@ -93,14 +93,32 @@ export const rolesRouter = router({
             return roleSkill;
         }),
 
-    getAllRoles: publicProcedure
+    getAllRoles: protectedProcedure
         .query(async () => {
             return db.query.roles.findMany({
                 orderBy: (roles, { asc }) => [asc(roles.title)],
             });
         }),
 
-    getRoleById: publicProcedure
+    setUserRole: protectedProcedure
+        .input(z.object({ roleId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+            const updated = await db
+                .update(user)
+                .set({ roleId: input.roleId })
+                .where(eq(user.id, ctx.session.user.id))
+                .returning();
+            
+            if (!updated[0]) {
+                throw new TRPCError({
+                    code: "INTERNAL_SERVER_ERROR",
+                    message: "Failed to update user role",
+                });
+            }
+            return updated[0];
+        }),
+
+    getRoleById: protectedProcedure
         .input(z.object({ roleId: z.string().uuid() }))
         .query(async ({ input }) => {
             const role = await db.query.roles.findFirst({
