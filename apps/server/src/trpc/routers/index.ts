@@ -4,8 +4,8 @@ import { cvRouter } from "../../modules/cv/routes/trpc_route";
 import { githubRouter } from "../../modules/github/routes/trpc_route";
 import { rolesRouter } from "../../modules/roles/routes/trpc_route";
 import { skillsRouter } from "../../modules/skills/routes/trpc_route";
-import { roadmapRouter } from "../../modules/guidance/routes/roadmap_trpc";
-import { readinessRouter } from "../../modules/guidance/routes/readiness_trpc";
+import { roadmapRouter } from "../../modules/roadmap/routes/roadmap_trpc";
+import { readinessRouter } from "../../modules/roadmap/routes/readiness_trpc";
 
 export const appRouter = router({
     auth: authRouter,

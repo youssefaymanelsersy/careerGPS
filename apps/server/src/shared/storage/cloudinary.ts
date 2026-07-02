@@ -19,7 +19,7 @@ export async function uploadToCloudinary(buffer: Buffer, folder = "uploads") {
 }
 
 export async function deleteFromCloudinary(publicId: string) {
-  await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+  await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
 }
 
 export default cloudinary;

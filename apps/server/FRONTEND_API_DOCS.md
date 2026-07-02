@@ -74,7 +74,7 @@ Handles evaluating the user's progress against a specific role.
   - **Input**: `{ roleId?: string, limit?: number }`
   - **Description**: Returns the top developers ranked by their readiness score and activity score.
 
-### E. Guidance & Roadmaps (`trpc.roadmap`)
+### E. roadmap & Roadmaps (`trpc.roadmap`)
 Handles generating and progressing through the AI-generated learning syllabus.
 
 - **`roadmap.generateLearningRoadmap`**

@@ -1,8 +1,8 @@
-import { env } from "@careergps/env/server";
+// import { env } from "@careergps/env/server";
 import { db } from "@/db";
 import { roadmapSteps, cachedInternalRoadmaps } from "./db/schema";
-import { userSkills, skills } from "@/modules/skills/db/schema";
-import { roadmaps } from "./db/schema";
+import { userSkills} from "@/modules/skills/db/schema";
+// import { roadmaps } from "./db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function generateInternalRoadmapForStep({

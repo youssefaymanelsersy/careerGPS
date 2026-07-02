@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
     completeRoadmapStep,
     generateLearningRoadmapByRoleName,
-} from "@/modules/guidance/service";
-import { generateSkillPlan, generateInternalRoadmapForStep } from "@/modules/guidance/ai-planner";
+} from "@/modules/roadmap/service";
+import { generateSkillPlan, generateInternalRoadmapForStep } from "@/modules/roadmap/ai-planner";
 import { router, publicProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { roadmaps } from "@/db/schema";

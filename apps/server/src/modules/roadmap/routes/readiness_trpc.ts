@@ -6,7 +6,7 @@ import { readinessReports, skillGapResults } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { user } from "@/db/schema";
 import { githubStats } from "@/db/schema";
-import { calculateTier } from "@/modules/guidance/gamification";
+import { calculateTier } from "@/modules/roadmap/gamification";
 
 export const readinessRouter = router({
     generate: publicProcedure
