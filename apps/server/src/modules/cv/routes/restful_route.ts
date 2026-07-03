@@ -96,6 +96,7 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
 
     if (status === "completed") {
       const { parsedData } = cvData;
+      const {skills} = parsedData ;
 
       await db
         .update(cv)
@@ -105,7 +106,7 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
       return res.status(200).json({
         cvId: id,
         status,
-        parsedData,
+        skills ,
       });
 
     } else if (status === "failed") {
