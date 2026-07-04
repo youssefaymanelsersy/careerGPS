@@ -1,5 +1,5 @@
 import { pgTable, text, integer, numeric, timestamp, uuid, doublePrecision, unique } from "drizzle-orm/pg-core";
-import { user } from "../../auth/db/schema";
+import { user } from "../../user/db/schema";
 
 export const githubStats = pgTable("github_stats", {
     userId: text("user_id")

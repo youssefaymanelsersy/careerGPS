@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, boolean, numeric, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { user } from "../../auth/db/schema";
+import { user } from "../../user/db/schema";
 import { projects } from "../../github/db/schema"; 
 
 export const skills = pgTable("skills", {

@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { pgEnum, pgTable, text, timestamp, jsonb, index } from "drizzle-orm/pg-core";
-import { user } from "../../auth/db/schema"
+import { user } from "../../user/db/schema"
 
 export const cvStatus = pgEnum("cvStatus", ["pending", "parsing", "completed", "failed"]);
 

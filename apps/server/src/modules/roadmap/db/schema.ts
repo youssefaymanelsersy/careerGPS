@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, boolean, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { user } from "../../auth/db/schema";
+import { user } from "../../user/db/schema";
 import { roles } from "../../roles/db/schema";
 import { skills } from "../../skills/db/schema";
 
@@ -50,7 +50,7 @@ export const roadmapSteps = pgTable("roadmap_steps", {
     title: text("title").notNull(),
     description: text("description").notNull(),
 
-    status: text("status").notNull().default("pending"), 
+    status: text("status").notNull().default("pending"),
     orderIndex: numeric("order_index").notNull(),
 
     cachedRoadmapId: uuid("cached_roadmap_id")
@@ -84,7 +84,7 @@ export const skillGapResults = pgTable("skill_gap_results", {
         .notNull()
         .references(() => roles.id, { onDelete: "cascade" }),
 
-    missingSkills: jsonb("missing_skills").notNull(), 
+    missingSkills: jsonb("missing_skills").notNull(),
     matchScore: numeric("match_score").notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
