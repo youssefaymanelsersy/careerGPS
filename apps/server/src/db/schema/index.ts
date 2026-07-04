@@ -4,4 +4,5 @@ export * from "../../modules/github/db/schema";
 export * from "../../modules/roles/db/schema";
 export * from "../../modules/skills/db/schema";
 export * from "../../modules/roadmap/db/schema";
+export * from "../../modules/user/db/schema";
 
