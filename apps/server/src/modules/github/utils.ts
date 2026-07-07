@@ -51,28 +51,29 @@ export function clamp(value: number, min: number, max: number) {
 }
 
 export function normalizeSkillName(name: string) {
-    const key = name.trim().toLowerCase();
+    const original = (name || "").trim();
+    if (original.length === 0) return "";
 
+    // Lowercase for deterministic output
+    let s = original.toLowerCase();
+
+    // Remove version numbers like HTML5, CSS3, etc.
+    s = s.replace(/\d+/g, "");
+
+    // Remove common separators (dots, underscores, dashes, and whitespace)
+    s = s.replace(/[.\-_\s]+/g, "");
+
+    // Drop any remaining characters that are not alphanumeric, #, or +
+    s = s.replace(/[^a-z0-9#+]/g, "");
+
+    // Normalize some common textual variants into canonical symbols
     const aliasMap: Record<string, string> = {
-        js: "javascript",
-        "node.js": "javascript",
-        nodejs: "javascript",
-        typescript: "typescript",
-        ts: "typescript",
-        py: "python",
-        postgres: "sql",
-        postgresql: "sql",
-        mysql: "sql",
-        sqlite: "sql",
-        mssql: "sql",
-        "t-sql": "sql",
-        tsql: "sql",
-        plpgsql: "sql",
-        golang: "go",
-        shell: "bash",
+        csharp: "c#",
+        cpp: "c++",
+        "csharp#": "c#",
     };
 
-    return aliasMap[key] ?? key;
+    return aliasMap[s] ?? s;
 }
 
 export function normalizeDependencyName(name: string) {

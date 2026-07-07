@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq ,sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -41,6 +41,7 @@ import {
     normalizeSkillName,
     type GitHubRepo,
 } from "../github/utils";
+
 
 export async function buildUserSkillMap({
     githubUsername,
@@ -176,7 +177,7 @@ export async function syncGithubSkillsForUser({
         userId,
         githubUsername,
     });
-
+    console.log("skillMapData",skillMapData);
     const {
         repos,
         contributions,
@@ -213,6 +214,7 @@ export async function syncGithubSkillsForUser({
             .values(
                 missingNormalizedSkillNames.map((name) => ({
                     name,
+                    normalizedName: name,
                     hasNoDependencies: true,
                 }))
             )
@@ -268,40 +270,46 @@ export async function syncGithubSkillsForUser({
             }
         }
     }
+    const githubSkills = [...combinedSkillStrengths.entries()].map(
+    ([skill, strength]) => ({
+        skill,
+        strength,
+    })
+);
+    // for (const [skillName, strength] of combinedSkillStrengths) {
+    //     const normalized = normalizeSkillName(skillName);
+    //     const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
+        
+    
+    //     for (const skill of matchedSkills) {
+    //         const githubStrength = Number(strength.toFixed(2));
 
-    for (const [skillName, strength] of combinedSkillStrengths) {
-        const normalized = normalizeSkillName(skillName);
-        const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
+    //         const existingUserSkill = await db.query.userSkills.findFirst({
+    //             where: and(
+    //                 eq(userSkills.userId, userId),
+    //                 eq(userSkills.skillId, skill.id)
+    //             ),
+    //         });
 
-        for (const skill of matchedSkills) {
-            const githubStrength = Number(strength.toFixed(2));
+    //         const existingStrength = existingUserSkill
+    //             ? Number(existingUserSkill.strengthScore)
+    //             : 0;
 
-            const existingUserSkill = await db.query.userSkills.findFirst({
-                where: and(
-                    eq(userSkills.userId, userId),
-                    eq(userSkills.skillId, skill.id)
-                ),
-            });
+    //         const mergedStrength = Math.max(existingStrength, githubStrength);
 
-            const existingStrength = existingUserSkill
-                ? Number(existingUserSkill.strengthScore)
-                : 0;
-
-            const mergedStrength = Math.max(existingStrength, githubStrength);
-
-            await db
-                .insert(userSkills)
-                .values({
-                    userId,
-                    skillId: skill.id,
-                    strengthScore: mergedStrength.toFixed(2),
-                })
-                .onConflictDoUpdate({
-                    target: [userSkills.userId, userSkills.skillId],
-                    set: { strengthScore: mergedStrength.toFixed(2) },
-                });
-        }
-    }
+//                  await db
+    //             .insert(userSkills)
+    //             .values({
+    //                 userId,
+    //                 skillId: skill.id,
+    //                 strengthScore: mergedStrength.toFixed(2),
+    //             })
+    //             .onConflictDoUpdate({
+    //                 target: [userSkills.userId, userSkills.skillId],
+    //                 set: { strengthScore: mergedStrength.toFixed(2) },
+    //             });
+    //     }
+    // }
 
     const totalStars = repos.reduce(
         (sum, repo) => sum + (repo.stargazers_count ?? 0),
@@ -331,6 +339,7 @@ export async function syncGithubSkillsForUser({
     return {
         repoCount: reposCount,
         activityScore,
+        skills:githubSkills
     };
 }
 
@@ -409,20 +418,27 @@ export async function addManualSkill({
 }: {
     userId: string;
     skillName: string;
-    level: "beginner" | "intermediate" | "expert";
+    level: "beginner" | "intermediate" | "expert" | null ;
 }) {
     const normalizedName = normalizeSkillName(skillName);
-    
-    // Find skill in our db
-    const skill = await db.query.skills.findFirst({
-        where: eq(skills.name, normalizedName)
-    });
-    
+
+    // Find skill in our db by normalized name (take best fuzzy match)
+    const skillRows = await db
+        .select()
+        .from(skills)
+        .where(sql`similarity(${skills.normalizedName}, ${normalizedName}) > 0.3`)
+        .orderBy(sql`similarity(${skills.normalizedName}, ${normalizedName}) DESC`)
+        .limit(1);
+
+    const skill = skillRows[0];
+
     if (!skill) {
-        throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `Skill "${skillName}" not found in our database.`
-        });
+        // Skill not found — return an error object so bulk callers can continue processing
+        return {
+            skillId: null ,
+            skillName,
+            error: `Skill \"${skillName}\" not found in our database.`,
+        } as const;
     }
     
     let baseScore = 30; // beginner
@@ -432,8 +448,8 @@ export async function addManualSkill({
     const existingUserSkill = await db.query.userSkills.findFirst({
         where: and(
             eq(userSkills.userId, userId),
-            eq(userSkills.skillId, skill.id)
-        ),
+            eq(userSkills.skillId, skill.id))
+        
     });
 
     const existingStrength = existingUserSkill
