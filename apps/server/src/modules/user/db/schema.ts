@@ -1,5 +1,6 @@
 import { roles } from "@/db/schema";
-import { pgTable, text, timestamp, boolean, uuid, integer } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, timestamp, boolean, uuid, integer ,check } from "drizzle-orm/pg-core";
 
 
 export const user = pgTable("user", {
@@ -18,4 +19,13 @@ export const user = pgTable("user", {
         .defaultNow()
         .$onUpdate(() => /* @__PURE__ */ new Date())
         .notNull(),
-});
+},(table) => [
+    check(
+      "available_days_per_week_check",
+      sql`${table.availableDaysPerWeek} BETWEEN 1 AND 7`
+    ),
+    check(
+      "available_hours_per_day_check",
+      sql`${table.availableHoursPerDay} BETWEEN 1 AND 24`
+    ),
+  ]);

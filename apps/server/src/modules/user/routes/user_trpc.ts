@@ -10,8 +10,8 @@ export const userRouter = router({
  setAvailability : protectedProcedure
     .input(
         z.object({
-            availableDaysPerWeek: z.number(),
-            availableHoursPerDay: z.number(),
+            availableDaysPerWeek: z.number().min(1).max(7),
+            availableHoursPerDay: z.number().min(1).max(24),
             
         })
     )
