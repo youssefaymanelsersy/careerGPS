@@ -315,7 +315,7 @@ async function generateLearningRoadmapInternal({
     roleId: string;
 }) {
     await evaluateUserForRole( {userId , roleId} );
-
+    console.log("report done");
     const gapRows = await db
         .select()
         .from(skillGapResults)
@@ -325,7 +325,7 @@ async function generateLearningRoadmapInternal({
     if (gapRows.length === 0) {
         return { message: "No skill gaps found. You're ready." };
     }
-
+    console.log("Gap :",gapRows);
     const gapRow = gapRows[0]!;
     const parsedGaps = typeof gapRow.missingSkills === "string"
         ? JSON.parse(gapRow.missingSkills)
@@ -412,7 +412,7 @@ async function generateLearningRoadmapInternal({
     }
 
     const sorted = topologicallySortSkills(roadmapMap, dependencies as SkillDependencyRow[]);
-
+    console.log("sorted",sorted)
     const allCurriculumNodes = await db.query.skillCurriculumNodes.findMany({
         where: inArray(skillCurriculumNodes.skillId, sorted),
         orderBy: asc(skillCurriculumNodes.orderIndex),
@@ -500,6 +500,7 @@ async function generateLearningRoadmapInternal({
             roadmapId: createdRoadmap.id,
             ...values,
         }));
+        console.log("roadmapNodeInserts :",roadmapNodeInserts);
         const insertedRoadmapNodes = await tx
             .insert(roadmapNodes)
             .values(roadmapNodeInserts)
