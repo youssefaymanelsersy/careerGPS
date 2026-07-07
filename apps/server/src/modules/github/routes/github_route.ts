@@ -11,7 +11,7 @@ export const githubRouter = router({
         .input(
             z.object({
                 username: z.string(),
-            })
+            }) 
         )
         .mutation(async ({ ctx, input }) => {
             return syncGithubSkillsForUser({
