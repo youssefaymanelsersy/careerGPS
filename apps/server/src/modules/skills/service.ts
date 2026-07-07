@@ -269,47 +269,20 @@ export async function syncGithubSkillsForUser({
                     .onConflictDoNothing();
             }
         }
+    }   
+    const converStrengthToLevel = (strength : number)=>{
+        if(strength<30){
+            return "beginner" ;
+        }
+        return (strength<60)? "intermediate" : "expert" ;
     }
     const githubSkills = [...combinedSkillStrengths.entries()].map(
     ([skill, strength]) => ({
-        skill,
-        strength,
+        "skillName":skill,
+        "level": converStrengthToLevel(strength),
     })
 );
-    // for (const [skillName, strength] of combinedSkillStrengths) {
-    //     const normalized = normalizeSkillName(skillName);
-    //     const matchedSkills = skillsByNormalizedName.get(normalized) ?? [];
-        
     
-    //     for (const skill of matchedSkills) {
-    //         const githubStrength = Number(strength.toFixed(2));
-
-    //         const existingUserSkill = await db.query.userSkills.findFirst({
-    //             where: and(
-    //                 eq(userSkills.userId, userId),
-    //                 eq(userSkills.skillId, skill.id)
-    //             ),
-    //         });
-
-    //         const existingStrength = existingUserSkill
-    //             ? Number(existingUserSkill.strengthScore)
-    //             : 0;
-
-    //         const mergedStrength = Math.max(existingStrength, githubStrength);
-
-//                  await db
-    //             .insert(userSkills)
-    //             .values({
-    //                 userId,
-    //                 skillId: skill.id,
-    //                 strengthScore: mergedStrength.toFixed(2),
-    //             })
-    //             .onConflictDoUpdate({
-    //                 target: [userSkills.userId, userSkills.skillId],
-    //                 set: { strengthScore: mergedStrength.toFixed(2) },
-    //             });
-    //     }
-    // }
 
     const totalStars = repos.reduce(
         (sum, repo) => sum + (repo.stargazers_count ?? 0),
