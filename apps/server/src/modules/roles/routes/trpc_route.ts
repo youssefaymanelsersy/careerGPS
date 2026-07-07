@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { roles, roleSkills, skills, user } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const rolesRouter = router({
@@ -10,6 +10,7 @@ export const rolesRouter = router({
         .input(
             z.object({
                 title: z.string().trim().min(1),
+                description: z.string().trim().min(1).optional()
             })
         )
         .mutation(async ({ input }) => {
@@ -17,11 +18,13 @@ export const rolesRouter = router({
                 .insert(roles)
                 .values({
                     title: input.title,
+                    description:input.description
                 })
                 .onConflictDoUpdate({
                     target: roles.title,
                     set: {
                         title: input.title,
+                        description:input.description
                     },
                 })
                 .returning();
@@ -37,22 +40,23 @@ export const rolesRouter = router({
             return role;
         }),
 
-    addSkill: protectedProcedure
+    addSkills: protectedProcedure
         .input(
             z.object({
                 roleId: z.string().uuid(),
-                skillId: z.string().uuid(),
-                isCore: z.boolean().default(false),
+                skills: z.array(
+                    z.object({
+                        skillId: z.string().uuid(),
+                        isCore: z.boolean().default(false),
+                    })
+                ).min(1),
             })
         )
         .mutation(async ({ input }) => {
-            const { roleId, skillId, isCore } = input;
+            const { roleId, skills: skillsInput } = input;
 
-            const [role, skill] = await Promise.all([
-                db.query.roles.findFirst({ where: eq(roles.id, roleId) }),
-                db.query.skills.findFirst({ where: eq(skills.id, skillId) }),
-            ]);
-
+            // Validate role exists
+            const role = await db.query.roles.findFirst({ where: eq(roles.id, roleId) });
             if (!role) {
                 throw new TRPCError({
                     code: "BAD_REQUEST",
@@ -60,37 +64,45 @@ export const rolesRouter = router({
                 });
             }
 
-            if (!skill) {
+            // Validate all skills exist
+            const skillIds = skillsInput.map(s => s.skillId);
+            const existingSkills = await db.query.skills.findMany({
+                where: (skills, { inArray }) => inArray(skills.id, skillIds),
+            });
+
+            if (existingSkills.length !== skillIds.length) {
                 throw new TRPCError({
                     code: "BAD_REQUEST",
-                    message: "Skill not found",
+                    message: "Some skills not found",
                 });
             }
 
+            // Batch insert with conflict handling
             const inserted = await db
                 .insert(roleSkills)
-                .values({
-                    roleId,
-                    skillId,
-                    isCore,
-                })
+                .values(
+                    skillsInput.map(s => ({
+                        roleId,
+                        skillId: s.skillId,
+                        isCore: s.isCore,
+                    }))
+                )
                 .onConflictDoUpdate({
                     target: [roleSkills.roleId, roleSkills.skillId],
                     set: {
-                        isCore,
+                         isCore: sql.raw(`excluded.is_core`),
                     },
                 })
                 .returning();
 
-            const roleSkill = inserted[0];
-            if (!roleSkill) {
+            if (inserted.length === 0) {
                 throw new TRPCError({
                     code: "INTERNAL_SERVER_ERROR",
-                    message: "Failed to assign skill to role",
+                    message: "Failed to assign skills to role",
                 });
             }
 
-            return roleSkill;
+            return inserted;
         }),
 
     getAllRoles: protectedProcedure
@@ -125,6 +137,10 @@ export const rolesRouter = router({
                 where: eq(roles.id, input.roleId),
                 with: {
                     skills: {
+                        columns:{
+                            roleId: false,
+                            skillId: false,
+                        },
                         with: {
                             skill: true
                         }

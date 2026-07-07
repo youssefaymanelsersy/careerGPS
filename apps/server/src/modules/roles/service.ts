@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray ,sql} from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -57,8 +57,13 @@ export async function evaluateUserForRoleName({
     userId: string;
     roleName: string;
 }) {
+    const normalizedRoleName = roleName.toLowerCase().replace(/\s+/g, "");
+
     const role = await db.query.roles.findFirst({
-        where: eq(roles.title, roleName),
+    where: sql`
+        replace(lower(${roles.title}), ' ', '') =
+        ${normalizedRoleName}
+    `,
     });
 
     if (!role) {
@@ -72,13 +77,13 @@ export async function evaluateUserForRoleName({
 }
 
 async function evaluateUserForRoleInternal({
-    userId,
-    roleId,
-}: {
-    userId: string;
-    roleId: string;
-}) {
-    const requiredSkills = await db
+        userId,
+        roleId,
+    }: {
+        userId: string;
+        roleId: string;
+    }) {
+        const requiredSkills = await db
         .select()
         .from(roleSkills)
         .where(eq(roleSkills.roleId, roleId));
@@ -225,7 +230,7 @@ async function evaluateUserForRoleInternal({
             roleId,
             skillMatchScore: skillMatchScore.toString(),
             generalGithubScore: generalGithubScore.toString(),
-            overallReadinessScore: totalScore.toString(),
+            overallReadinessScore: finalScore.toString(),
             feedback: "Calculated automatically.",
         })
         .returning();

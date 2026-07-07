@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, asc, lt, ne } from "drizzle-orm";
 import { evaluateUserForRole } from "@/modules/roles/service";
 
 import { db } from "@/db";
@@ -10,316 +10,28 @@ import {
     readinessReports,
     skillGapResults,
     roadmaps,
-    roadmapSteps,
+    roadmapNodes,
+    skillCurriculumNodes,
+    curriculumNodeResources,
     skills,
     skillDependencies,
 } from "@/db/schema";
+import { normalizeSkillName } from "@/modules/github/utils";
 
-export async function generateLearningRoadmap({
-    userId,
-    roleId,
-}: {
-    userId: string;
-    roleId: string;
-}) {
-    const role = await db.query.roles.findFirst({
-        where: eq(roles.id, roleId),
-    });
+export const WEAK_SKIP_FACTOR = 0.6;
 
-    if (!role) {
-        throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `Role \"${roleId}\" not found.`,
-        });
-    }
-
-    return generateLearningRoadmapInternal({ userId, roleId: role.id });
+export function nodesToSkip(strength: number, totalNodes: number): number {
+    if (strength === 0) return 0;
+    const skipFraction = (strength / 100) * WEAK_SKIP_FACTOR;
+    const skipCount = Math.floor(totalNodes * skipFraction);
+    // Never skip all nodes; leave at least one
+    return Math.min(skipCount, Math.max(totalNodes - 1, 0));
 }
 
-export async function generateLearningRoadmapByRoleName({
-    userId,
-    roleName,
-}: {
-    userId: string;
-    roleName: string;
-}) {
-    const role = await db.query.roles.findFirst({
-        where: eq(roles.title, roleName),
-    });
-
-    if (!role) {
-        throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `Role \"${roleName}\" not found.`,
-        });
-    }
-
-    return generateLearningRoadmapInternal({ userId, roleId: role.id });
-}
-
-export async function completeRoadmapStep({
-    userId,
-    stepId,
-}: {
-    userId: string;
-    stepId: string;
-}) {
-    const matchingStep = await db
-        .select({
-            stepId: roadmapSteps.id,
-            roadmapId: roadmapSteps.roadmapId,
-            skillId: roadmapSteps.skillId,
-            status: roadmapSteps.status,
-            roadmapUserId: roadmaps.userId,
-        })
-        .from(roadmapSteps)
-        .innerJoin(roadmaps, eq(roadmaps.id, roadmapSteps.roadmapId))
-        .where(
-            and(
-                eq(roadmapSteps.id, stepId),
-                eq(roadmaps.userId, userId)
-            )
-        )
-        .limit(1);
-
-    const step = matchingStep[0];
-
-    if (!step) {
-        throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Roadmap step not found for this user",
-        });
-    }
-
-    await db
-        .update(roadmapSteps)
-        .set({ status: "completed" })
-        .where(eq(roadmapSteps.id, step.stepId));
-
-    let skill = await db.query.skills.findFirst({
-        where: eq(skills.id, step.skillId),
-    });
-
-    if (!skill) {
-        await db
-            .insert(skills)
-            .values({
-                id: step.skillId,
-                name: `generated-skill-${step.skillId}`,
-                hasNoDependencies: true,
-            })
-            .onConflictDoNothing();
-
-        skill = await db.query.skills.findFirst({
-            where: eq(skills.id, step.skillId),
-        });
-
-        if (!skill) {
-            throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: "Failed to resolve step skill",
-            });
-        }
-    }
-
-    const currentUserSkill = await db.query.userSkills.findFirst({
-        where: and(
-            eq(userSkills.userId, userId),
-            eq(userSkills.skillId, step.skillId)
-        ),
-    });
-
-    const currentStrength = currentUserSkill
-        ? clamp(Number(currentUserSkill.strengthScore), 0, 100)
-        : 0;
-
-    const newStrength = currentUserSkill
-        ? Math.min(currentStrength + 15, 100)
-        : 15;
-
-    await db
-        .insert(userSkills)
-        .values({
-            userId,
-            skillId: step.skillId,
-            strengthScore: newStrength.toString(),
-        })
-        .onConflictDoUpdate({
-            target: [userSkills.userId, userSkills.skillId],
-            set: {
-                strengthScore: newStrength.toString(),
-            },
-        });
-
-    // Real-Time Score Recalculation
-    // By re-evaluating the user for their role, the readinessReport and skillGapResults
-    // are instantly updated in the background so their dashboard score increases live.
-    const activeRoadmap = await db.query.roadmaps.findFirst({
-        where: eq(roadmaps.id, step.roadmapId)
-    });
-    
-    if (activeRoadmap) {
-        await evaluateUserForRole({ userId, roleId: activeRoadmap.roleId });
-    }
-
-    return {
-        stepId: step.stepId,
-        status: "completed" as const,
-        skillId: step.skillId,
-        skillName: skill.name,
-        previousStrength: currentStrength,
-        newStrength,
-    };
-}
-
-async function generateLearningRoadmapInternal({
-    userId,
-    roleId,
-}: {
-    userId: string;
-    roleId: string;
-}) {
-    const latestReport = await db.query.readinessReports.findFirst({
-        where: eq(readinessReports.userId, userId),
-        orderBy: desc(readinessReports.createdAt),
-    });
-
-    if (!latestReport || latestReport.roleId !== roleId) {
-        throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "No readiness report found for this role.",
-        });
-    }
-
-    // Infinite Loop Fix
-    // Instead of unconditionally deleting roadmaps, we check if an active one exists.
-    // This prevents regenerating the exact same roadmap if the user hasn't crossed the 
-    // weak threshold for a recently completed step.
-    const existingActiveRoadmap = await db.query.roadmaps.findFirst({
-        where: and(eq(roadmaps.userId, userId), eq(roadmaps.roleId, roleId), eq(roadmaps.isActive, true)),
-        with: {
-            steps: {
-                with: {
-                    skill: true
-                }
-            }
-        }
-    });
-
-    if (existingActiveRoadmap) {
-        return {
-            roadmapId: existingActiveRoadmap.id,
-            totalSteps: existingActiveRoadmap.steps.length,
-            steps: existingActiveRoadmap.steps.sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex)).map(step => ({
-                step: Number(step.orderIndex),
-                skill: step.skill.name,
-                priority: "medium", // Defaulting for existing roadmap structure
-            })),
-            roadmap: existingActiveRoadmap.steps.sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex)).map(step => ({
-                step: Number(step.orderIndex),
-                skill: step.skill.name,
-                priority: "medium", 
-            })),
-        };
-    }
-
-    // Clean up old inactive roadmaps before creating a new one
-    await db
-        .delete(roadmaps)
-        .where(and(eq(roadmaps.userId, userId), eq(roadmaps.roleId, roleId)));
-
-    // Oldest-First Bug Fix: Added desc(skillGapResults.createdAt)
-    const gapRows = await db
-        .select()
-        .from(skillGapResults)
-        .where(and(eq(skillGapResults.userId, userId), eq(skillGapResults.roleId, roleId)))
-        .orderBy(desc(skillGapResults.createdAt));
-
-    if (gapRows.length === 0) {
-        return { message: "No skill gaps found. You're ready." };
-    }
-
-    const gapRow = gapRows[0]!;
-    const gapsJson = typeof gapRow.missingSkills === "string" 
-        ? JSON.parse(gapRow.missingSkills) 
-        : (gapRow.missingSkills || { missing: [], weak: [] });
-        
-    const typedGapsJson = gapsJson as { missing?: string[], weak?: string[] };
-
-    const allGapNames = [...(typedGapsJson.missing || []), ...(typedGapsJson.weak || [])];
-    
-    if (allGapNames.length === 0) {
-        return { message: "No skill gaps found. You're ready." };
-    }
-
-    const skillListGap = await db
-        .select()
-        .from(skills)
-        .where(inArray(skills.name, allGapNames));
-        
-    const gapSkillIds = skillListGap.map((s) => s.id);
-
-    const gaps = skillListGap.map((s) => ({
-        skillId: s.id,
-        gapType: (typedGapsJson.missing || []).includes(s.name) ? "missing" : "weak"
-    }));
-
-    const roleSkillWeights = await db
-        .select()
-        .from(roleSkills)
-        .where(eq(roleSkills.roleId, roleId));
-
-    const userSkillRows = await db
-        .select()
-        .from(userSkills)
-        .where(eq(userSkills.userId, userId));
-
-    const userStrengthBySkillId = new Map(
-        userSkillRows.map((row) => [row.skillId, clamp(Number(row.strengthScore), 0, 100)])
-    );
-
-    const roleWeightBySkillId = new Map(
-        roleSkillWeights.map((row) => [row.skillId, getRoleSkillWeight(row)])
-    );
-
-    const skillList = await db
-        .select()
-        .from(skills)
-        .where(inArray(skills.id, gapSkillIds));
-
-    const skillById = new Map(skillList.map((item) => [item.id, item]));
-
-    const dependencies = await db
-        .select()
-        .from(skillDependencies)
-        .where(inArray(skillDependencies.skillId, gapSkillIds));
-
-    const roadmapMap = new Map<
-        string,
-        {
-            skillId: string;
-            skillName: string;
-            weight: number;
-            priorityScore: number;
-            priority: "high" | "medium";
-        }
-    >();
-
-    for (const gap of gaps) {
-        const weight = roleWeightBySkillId.get(gap.skillId) ?? 0;
-        const strength = userStrengthBySkillId.get(gap.skillId) ?? 0;
-        const priorityScore = weight * (100 - strength);
-        const skill = skillById.get(gap.skillId);
-
-        roadmapMap.set(gap.skillId, {
-            skillId: gap.skillId,
-            skillName: skill?.name ?? "Unknown",
-            weight,
-            priorityScore,
-            priority: gap.gapType === "missing" ? "high" : "medium",
-        });
-    }
-
+export function topologicallySortSkills(
+    roadmapMap: Map<string, { skillId: string; skillName: string; weight: number; priorityScore: number; priority: "high" | "medium" }>,
+    dependencies: { skillId: string; dependsOnSkillId: string }[]
+): string[] {
     const graph = new Map<string, string[]>();
     const inDegree = new Map<string, number>();
 
@@ -330,6 +42,7 @@ async function generateLearningRoadmapInternal({
 
     for (const dep of dependencies) {
         if (!roadmapMap.has(dep.dependsOnSkillId)) continue;
+        if (!roadmapMap.has(dep.skillId)) continue;
 
         graph.get(dep.dependsOnSkillId)?.push(dep.skillId);
         inDegree.set(dep.skillId, (inDegree.get(dep.skillId) ?? 0) + 1);
@@ -376,57 +89,442 @@ async function generateLearningRoadmapInternal({
         });
     }
 
-    const inserted = await db
-        .insert(roadmaps)
-        .values({
-            title: "Your Learning Roadmap",
-            userId,
-            roleId,
-            isActive: true,
-        })
-        .returning();
+    return sorted;
+}
 
-    const roadmap = inserted[0];
-    if (!roadmap) {
+export async function generateLearningRoadmap({
+    userId,
+    roleId,
+}: {
+    userId: string;
+    roleId: string;
+}) {
+    const role = await db.query.roles.findFirst({
+        where: eq(roles.id, roleId),
+    });
+
+    if (!role) {
         throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create roadmap",
+            code: "BAD_REQUEST",
+            message: `Role \"${roleId}\" not found.`,
         });
     }
 
-    await db.insert(roadmapSteps).values(
-        sorted.map((skillId, index) => {
-            const item = roadmapMap.get(skillId)!;
-            return {
-                title: item.skillName,
-                description: "Learn this skill",
-                roadmapId: roadmap.id,
-                skillId,
-                orderIndex: (index + 1).toString(),
-                status: "pending",
-            };
+    return generateLearningRoadmapInternal({ userId, roleId: role.id });
+}
+
+export async function generateLearningRoadmapByRoleName({
+    userId,
+    roleId,
+}: {
+    userId: string;
+    roleId: string;
+}) {
+    const role = await db.query.roles.findFirst({
+        where: eq(roles.id, roleId),
+    });
+
+    if (!role) {
+        throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Role \"${roleId}\" not found.`,
+        });
+    }
+
+    return generateLearningRoadmapInternal({ userId, roleId: roleId });
+}
+
+export async function completeRoadmapNode({
+    userId,
+    nodeId,
+}: {
+    userId: string;
+    nodeId: string;
+}) {
+    const matchingNode = await db
+        .select({
+            nodeId: roadmapNodes.id,
+            roadmapId: roadmapNodes.roadmapId,
+            curriculumNodeId: roadmapNodes.curriculumNodeId,
+            status: roadmapNodes.status,
+            roadmapUserId: roadmaps.userId,
+            orderIndex: roadmapNodes.orderIndex,
         })
+        .from(roadmapNodes)
+        .innerJoin(roadmaps, eq(roadmaps.id, roadmapNodes.roadmapId))
+        .where(
+            and(
+                eq(roadmapNodes.id, nodeId),
+                eq(roadmaps.userId, userId)
+            )
+        )
+        .limit(1);
+
+    const node = matchingNode[0];
+
+    if (!node) {
+        throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Roadmap node not found for this user",
+        });
+    }
+
+    if (node.status === "completed") {
+        return { alreadyCompleted: true };
+    }
+
+    const earlierUncompletedNodes = await db
+        .select()
+        .from(roadmapNodes)
+        .where(
+            and(
+                eq(roadmapNodes.roadmapId, node.roadmapId),
+                eq(roadmapNodes.curriculumNodeId, node.curriculumNodeId),
+                lt(roadmapNodes.orderIndex, node.orderIndex),
+                ne(roadmapNodes.status, "completed")
+            )
+        )
+        .limit(1);
+
+    if (earlierUncompletedNodes.length > 0) {
+        throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You must complete earlier nodes in this skill first.",
+        });
+    }
+
+    await db
+        .update(roadmapNodes)
+        .set({ status: "completed", completedAt: new Date() })
+        .where(eq(roadmapNodes.id, node.nodeId));
+
+    const remainingUncompleted = await db
+        .select()
+        .from(roadmapNodes)
+        .where(
+            and(
+                eq(roadmapNodes.roadmapId, node.roadmapId),
+                eq(roadmapNodes.curriculumNodeId, node.curriculumNodeId),
+                ne(roadmapNodes.status, "completed")
+            )
+        )
+        .limit(1);
+
+    let skillFullyCompleted = remainingUncompleted.length === 0;
+
+    const curriculumNode = await db.query.skillCurriculumNodes.findFirst({
+        where: eq(skillCurriculumNodes.id, node.curriculumNodeId),
+    });
+
+    if (!curriculumNode) {
+        throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Curriculum node not found.",
+        });
+    }
+
+    const currentUserSkill = await db.query.userSkills.findFirst({
+        where: and(
+            eq(userSkills.userId, userId),
+            eq(userSkills.skillId, curriculumNode.skillId)
+        ),
+    });
+
+    const currentStrength = currentUserSkill
+        ? clamp(Number(currentUserSkill.strengthScore), 0, 100)
+        : 0;
+
+    let newStrength = currentStrength;
+
+    if (skillFullyCompleted) {
+        newStrength = Math.min(currentStrength + 15, 100);
+
+        await db
+            .insert(userSkills)
+            .values({
+                userId,
+                skillId: curriculumNode.skillId,
+                strengthScore: newStrength.toString(),
+            })
+            .onConflictDoUpdate({
+                target: [userSkills.userId, userSkills.skillId],
+                set: {
+                    strengthScore: newStrength.toString(),
+                },
+            });
+
+        const activeRoadmap = await db.query.roadmaps.findFirst({
+            where: eq(roadmaps.id, node.roadmapId)
+        });
+
+        if (activeRoadmap) {
+            await evaluateUserForRole({ userId, roleId: activeRoadmap.roleId });
+        }
+    }
+
+    return {
+        nodeId: node.nodeId,
+        status: "completed" as const,
+        skillId: curriculumNode.skillId,
+        skillFullyCompleted,
+        previousStrength: currentStrength,
+        newStrength,
+    };
+}
+
+type RoadmapResource = {
+    id: string;
+    curriculumNodeId: string;
+    title: string;
+    type: string;
+    url: string;
+    displayOrder: number;
+};
+
+type RoadmapResponseNode = {
+    step: number;
+    nodeId: string | undefined;
+    skillId: string;
+    skillName: string;
+    curriculumTitle: string;
+    curriculumDescription: string;
+    priority: "high" | "medium";
+    resources: RoadmapResource[];
+};
+
+type PendingRoadmapNodeInsert = {
+    curriculumNodeId: string;
+    orderIndex: number;
+    status: "pending";
+};
+
+type SkillDependencyRow = {
+    skillId: string;
+    dependsOnSkillId: string;
+};
+
+type SkillGapJson = {
+    missing?: string[];
+    weak?: string[];
+};
+
+async function generateLearningRoadmapInternal({
+    userId,
+    roleId,
+}: {
+    userId: string;
+    roleId: string;
+}) {
+    await evaluateUserForRole( {userId , roleId} );
+
+    const gapRows = await db
+        .select()
+        .from(skillGapResults)
+        .where(and(eq(skillGapResults.userId, userId), eq(skillGapResults.roleId, roleId)))
+        .orderBy(desc(skillGapResults.createdAt));
+
+    if (gapRows.length === 0) {
+        return { message: "No skill gaps found. You're ready." };
+    }
+
+    const gapRow = gapRows[0]!;
+    const parsedGaps = typeof gapRow.missingSkills === "string"
+        ? JSON.parse(gapRow.missingSkills)
+        : gapRow.missingSkills || { missing: [], weak: [] };
+
+    const typedGapsJson = parsedGaps as SkillGapJson;
+    const allGapNames = [...(typedGapsJson.missing ?? []), ...(typedGapsJson.weak ?? [])];
+
+    if (allGapNames.length === 0) {
+        return { message: "No skill gaps found. You're ready." };
+    }
+
+    const normalizedGapNames = allGapNames.map(normalizeSkillName);
+
+    const skillListGap = await db
+        .select({
+            id: skills.id,
+            name: skills.name,
+            normalizedName: skills.normalizedName,
+        })
+        .from(skills)
+        .where(inArray(skills.normalizedName, normalizedGapNames));
+
+    const gapSkillIds = skillListGap.map((skill) => skill.id);
+    const normalizedMissing = new Set((typedGapsJson.missing ?? []).map(normalizeSkillName));
+
+    const gaps = skillListGap.map((skill) => ({
+        skillId: skill.id,
+        gapType: normalizedMissing.has(skill.normalizedName) ? "missing" : "weak",
+    }));
+
+    const [roleSkillWeights, userSkillRows, dependencies] = await Promise.all([
+        db.select({
+            skillId: roleSkills.skillId,
+            isCore: roleSkills.isCore,
+        })
+            .from(roleSkills)
+            .where(eq(roleSkills.roleId, roleId)),
+        db.select({
+            skillId: userSkills.skillId,
+            strengthScore: userSkills.strengthScore,
+        })
+            .from(userSkills)
+            .where(eq(userSkills.userId, userId)),
+        db.select({
+            skillId: skillDependencies.skillId,
+            dependsOnSkillId: skillDependencies.dependsOnSkillId,
+        })
+            .from(skillDependencies)
+            .where(inArray(skillDependencies.skillId, gapSkillIds)),
+    ]);
+
+    const userStrengthBySkillId = new Map(
+        userSkillRows.map((row) => [row.skillId, clamp(Number(row.strengthScore), 0, 100)])
     );
+
+    const roleWeightBySkillId = new Map(
+        roleSkillWeights.map((row) => [row.skillId, getRoleSkillWeight(row)])
+    );
+
+    const skillById = new Map(skillListGap.map((skill) => [skill.id, skill]));
+
+    const roadmapMap = new Map<string, {
+        skillId: string;
+        skillName: string;
+        weight: number;
+        priorityScore: number;
+        priority: "high" | "medium";
+    }>();
+
+    for (const gap of gaps) {
+        const weight = roleWeightBySkillId.get(gap.skillId) ?? 0;
+        const strength = userStrengthBySkillId.get(gap.skillId) ?? 0;
+        const priorityScore = weight * (100 - strength);
+        const skill = skillById.get(gap.skillId);
+
+        roadmapMap.set(gap.skillId, {
+            skillId: gap.skillId,
+            skillName: skill?.name ?? "Unknown",
+            weight,
+            priorityScore,
+            priority: gap.gapType === "missing" ? "high" : "medium",
+        });
+    }
+
+    const sorted = topologicallySortSkills(roadmapMap, dependencies as SkillDependencyRow[]);
+
+    const allCurriculumNodes = await db.query.skillCurriculumNodes.findMany({
+        where: inArray(skillCurriculumNodes.skillId, sorted),
+        orderBy: asc(skillCurriculumNodes.orderIndex),
+        with: {
+            resources: {
+                orderBy: asc(curriculumNodeResources.displayOrder),
+            },
+        },
+    });
+    const curriculumBySkill = new Map<string, typeof allCurriculumNodes[number][]>();
+    for (const node of allCurriculumNodes) {
+        const skillNodes = curriculumBySkill.get(node.skillId) ?? [];
+        skillNodes.push(node);
+        curriculumBySkill.set(node.skillId, skillNodes);
+    }
+
+    const responseNodes: RoadmapResponseNode[] = [];
+    const skillsMissingCurriculum: string[] = [];
+    const pendingRoadmapNodeInserts: PendingRoadmapNodeInsert[] = [];
+    let globalOrder = 1;
+
+    for (const skillId of sorted) {
+        const roadmapItem = roadmapMap.get(skillId)!;
+        const skillNodes = curriculumBySkill.get(skillId);
+
+        if (!skillNodes || skillNodes.length === 0) {
+            skillsMissingCurriculum.push(roadmapItem.skillName);
+            continue;
+        }
+
+        const skipCount = nodesToSkip(userStrengthBySkillId.get(skillId) ?? 0, skillNodes.length);
+        const nodesToKeep = skillNodes.slice(skipCount);
+        const selectedNodes = nodesToKeep.length > 0 ? nodesToKeep : [skillNodes[skillNodes.length - 1]!];
+
+        for (const node of selectedNodes) {
+            pendingRoadmapNodeInserts.push({
+                curriculumNodeId: node.id,
+                orderIndex: globalOrder,
+                status: "pending",
+            });
+
+            responseNodes.push({
+                step: globalOrder,
+                nodeId: undefined,
+                skillId,
+                skillName: roadmapItem.skillName,
+                curriculumTitle: node.title,
+                curriculumDescription: node.description,
+                priority: roadmapItem.priority,
+                resources: node.resources ?? [],
+            });
+
+            globalOrder += 1;
+        }
+    }
+
+    if (pendingRoadmapNodeInserts.length === 0) {
+        throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unable to generate roadmap: no curriculum nodes available for this role.",
+        });
+    }
+    const { roadmap, insertedNodes } = await db.transaction(async (tx) => {
+        await tx
+            .delete(roadmaps)
+            .where(and(eq(roadmaps.userId, userId), eq(roadmaps.roleId, roleId)));
+
+        const [createdRoadmap] = await tx
+            .insert(roadmaps)
+            .values({
+                title: "Your Learning Roadmap",
+                userId,
+                roleId,
+                isActive: true,
+            })
+            .returning();
+
+        if (!createdRoadmap) {
+            throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Failed to create roadmap",
+            });
+        }
+        const roadmapNodeInserts = pendingRoadmapNodeInserts.map((values) => ({
+            roadmapId: createdRoadmap.id,
+            ...values,
+        }));
+        const insertedRoadmapNodes = await tx
+            .insert(roadmapNodes)
+            .values(roadmapNodeInserts)
+            .returning({ id: roadmapNodes.id });
+
+        return {
+            roadmap: createdRoadmap,
+            insertedNodes: insertedRoadmapNodes,
+        };
+    });
+
+    const nodeIds = insertedNodes.map((inserted) => inserted.id);
 
     return {
         roadmapId: roadmap.id,
-        totalSteps: sorted.length,
-        steps: sorted.map((id, index) => {
-            const item = roadmapMap.get(id)!;
-            return {
-                step: index + 1,
-                skill: item.skillName,
-                priority: item.priority,
-            };
-        }),
-        roadmap: sorted.map((id, index) => {
-            const item = roadmapMap.get(id)!;
-            return {
-                step: index + 1,
-                skill: item.skillName,
-                priority: item.priority,
-            };
-        }),
+        totalNodes: responseNodes.length,
+        nodes: responseNodes.map((node, index) => ({
+            step: node.step,
+            nodeId: nodeIds[index],
+            skillName: node.skillName,
+            curriculumTitle: node.curriculumTitle,
+            priority: node.priority,
+        })),
+        skillsMissingCurriculum,
     };
 }
 

@@ -1,8 +1,9 @@
-import { pgTable, uuid, text, timestamp, boolean, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, uuid, text, timestamp, boolean, numeric, jsonb, uniqueIndex, integer } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { user } from "../../user/db/schema";
 import { roles } from "../../roles/db/schema";
-import { skills } from "../../skills/db/schema";
+import { skillCurriculumNodes } from "@/modules/skills/db/curriculum_schema";
+
 
 export const roadmaps = pgTable("roadmaps", {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -21,56 +22,41 @@ export const roadmaps = pgTable("roadmaps", {
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const cachedInternalRoadmaps = pgTable("cached_internal_roadmaps", {
-    id: uuid("id").defaultRandom().primaryKey(),
-    skillId: uuid("skill_id")
-        .notNull()
-        .references(() => skills.id, { onDelete: "cascade" }),
-    level: text("level").notNull(),
-    durationDays: numeric("duration_days").notNull(),
-    dailyMinutes: numeric("daily_minutes").notNull(),
-    roadmapData: jsonb("roadmap_data").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-    unq: uniqueIndex("cached_internal_roadmap_unq").on(table.skillId, table.level, table.durationDays, table.dailyMinutes)
+    unq: uniqueIndex("roadmaps_user_role_active_unq")
+        .on(table.userId, table.roleId)
+        .where(sql`is_active = true`)
 }));
 
-export const roadmapSteps = pgTable("roadmap_steps", {
+
+export const roadmapNodes = pgTable("roadmap_nodes", {
     id: uuid("id").defaultRandom().primaryKey(),
     roadmapId: uuid("roadmap_id")
         .notNull()
         .references(() => roadmaps.id, { onDelete: "cascade" }),
 
-    skillId: uuid("skill_id")
+    curriculumNodeId: uuid("curriculum_node_id")
         .notNull()
-        .references(() => skills.id, { onDelete: "cascade" }),
-
-    title: text("title").notNull(),
-    description: text("description").notNull(),
+        .references(() => skillCurriculumNodes.id, { onDelete: "restrict" }),
 
     status: text("status").notNull().default("pending"),
-    orderIndex: numeric("order_index").notNull(),
-
-    cachedRoadmapId: uuid("cached_roadmap_id")
-        .references(() => cachedInternalRoadmaps.id, { onDelete: "set null" }),
+    orderIndex: integer("order_index").notNull(),
 
     completedAt: timestamp("completed_at"),
 });
 
 export const roadmapsRelations = relations(roadmaps, ({ many }) => ({
-    steps: many(roadmapSteps),
+    nodes: many(roadmapNodes),
 }));
 
-export const roadmapStepsRelations = relations(roadmapSteps, ({ one }) => ({
+export const roadmapNodesRelations = relations(roadmapNodes, ({ one }) => ({
     roadmap: one(roadmaps, {
-        fields: [roadmapSteps.roadmapId],
+        fields: [roadmapNodes.roadmapId],
         references: [roadmaps.id],
     }),
-    skill: one(skills, {
-        fields: [roadmapSteps.skillId],
-        references: [skills.id],
+    curriculumNode: one(skillCurriculumNodes, {
+        fields: [roadmapNodes.curriculumNodeId],
+        references: [skillCurriculumNodes.id],
     }),
 }));
 
@@ -108,4 +94,3 @@ export const readinessReports = pgTable("readiness_reports", {
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-
