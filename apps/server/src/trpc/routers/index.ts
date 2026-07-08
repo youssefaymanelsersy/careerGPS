@@ -1,18 +1,8 @@
 import { router } from "../index";
-import { authRouter } from "./auth";
-import { githubRouter } from "./github";
-import { readinessRouter } from "./readiness";
-import { roadmapRouter } from "./roadmap";
-import { rolesRouter } from "./roles";
-import { skillsRouter } from "./skills";
+import { aiRouter } from "./ai.router";
 
 export const appRouter = router({
-    auth: authRouter,
-    github: githubRouter,
-    readiness: readinessRouter,
-    roadmap: roadmapRouter,
-    roles: rolesRouter,
-    skills: skillsRouter,
+  ai: aiRouter,
 });
 
 export type AppRouter = typeof appRouter;
