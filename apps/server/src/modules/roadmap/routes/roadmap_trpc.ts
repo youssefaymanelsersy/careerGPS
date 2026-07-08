@@ -5,7 +5,7 @@ import {
 } from "@/modules/roadmap/service";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roadmaps, roadmapNodes, skillCurriculumNodes, roleSkills } from "@/db/schema";
+import { roadmaps, roadmapNodes, skillCurriculumNodes } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
@@ -62,7 +62,8 @@ export const roadmapRouter = router({
                             id:true,
                             orderIndex:true,
                             status:true,
-                            completedAt:true
+                            completedAt:true,
+                            priority:true,
                         },
                         orderBy: asc(roadmapNodes.orderIndex),
                         with: {
@@ -91,14 +92,6 @@ export const roadmapRouter = router({
                 });
             }
 
-            const roleSkillRows = await db.query.roleSkills.findMany({
-                where: eq(roleSkills.roleId, input.roleId),
-            });
-
-            const rolePriorityBySkill = new Map<string, "high" | "medium">(
-                roleSkillRows.map((row) => [row.skillId, row.isCore ? "high" : "medium"])
-            );
-
             return {
                 roadmapId: roadmap.id,
                 totalNodes: roadmap.nodes.length,
@@ -108,7 +101,7 @@ export const roadmapRouter = router({
                     status: node.status,
                     curriculumTitle: node.curriculumNode.title,
                     skillName: node.curriculumNode.skill.name,
-                    priority: rolePriorityBySkill.get(node.curriculumNode.skillId) ?? "medium",
+                    priority: node.priority,
                     completedAt: node.completedAt,
                 })),
             };

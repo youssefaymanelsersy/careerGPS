@@ -14,7 +14,7 @@ import {
     roles,
 } from "@/db/schema";
 
-const WEAK_SKILL_THRESHOLD = 60;
+const WEAK_SKILL_THRESHOLD = 35;
 const BONUS_IMPORTANCE_THRESHOLD = 2;
 const BONUS_SCORE_CAP = 10;
 const FINAL_SCORE_WEIGHTS = {
@@ -51,7 +51,8 @@ export async function evaluateUserForRole({
 }
 
 export async function evaluateUserForRoleName({
-    userId, roleName,
+    userId,
+    roleName,
 }: {
     userId: string;
     roleName: string;

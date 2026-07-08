@@ -148,9 +148,11 @@ export async function completeRoadmapNode({
             status: roadmapNodes.status,
             roadmapUserId: roadmaps.userId,
             orderIndex: roadmapNodes.orderIndex,
+            skillId: skillCurriculumNodes.skillId,
         })
         .from(roadmapNodes)
         .innerJoin(roadmaps, eq(roadmaps.id, roadmapNodes.roadmapId))
+        .innerJoin(skillCurriculumNodes, eq(skillCurriculumNodes.id, roadmapNodes.curriculumNodeId))
         .where(
             and(
                 eq(roadmapNodes.id, nodeId),
@@ -175,10 +177,11 @@ export async function completeRoadmapNode({
     const earlierUncompletedNodes = await db
         .select()
         .from(roadmapNodes)
+        .innerJoin(skillCurriculumNodes, eq(skillCurriculumNodes.id, roadmapNodes.curriculumNodeId))
         .where(
             and(
                 eq(roadmapNodes.roadmapId, node.roadmapId),
-                eq(roadmapNodes.curriculumNodeId, node.curriculumNodeId),
+                eq(skillCurriculumNodes.skillId, node.skillId),
                 lt(roadmapNodes.orderIndex, node.orderIndex),
                 ne(roadmapNodes.status, "completed")
             )
@@ -197,13 +200,33 @@ export async function completeRoadmapNode({
         .set({ status: "completed", completedAt: new Date() })
         .where(eq(roadmapNodes.id, node.nodeId));
 
-    const remainingUncompleted = await db
+    const firstPendingNode = await db
         .select()
         .from(roadmapNodes)
         .where(
             and(
                 eq(roadmapNodes.roadmapId, node.roadmapId),
-                eq(roadmapNodes.curriculumNodeId, node.curriculumNodeId),
+                eq(roadmapNodes.status, "pending")
+            )
+        )
+        .orderBy(asc(roadmapNodes.orderIndex))
+        .limit(1);
+
+    if (firstPendingNode[0]) {
+        await db
+            .update(roadmapNodes)
+            .set({ status: "inProgress" })
+            .where(eq(roadmapNodes.id, firstPendingNode[0]!.id));
+    }
+
+    const remainingUncompleted = await db
+        .select()
+        .from(roadmapNodes)
+        .innerJoin(skillCurriculumNodes, eq(skillCurriculumNodes.id, roadmapNodes.curriculumNodeId))
+        .where(
+            and(
+                eq(roadmapNodes.roadmapId, node.roadmapId),
+                eq(skillCurriculumNodes.skillId, node.skillId),
                 ne(roadmapNodes.status, "completed")
             )
         )
@@ -233,25 +256,33 @@ export async function completeRoadmapNode({
         ? clamp(Number(currentUserSkill.strengthScore), 0, 100)
         : 0;
 
-    let newStrength = currentStrength;
+    const skillCurriculumNodesForSkill = await db.query.skillCurriculumNodes.findMany({
+        where: eq(skillCurriculumNodes.skillId, curriculumNode.skillId),
+        columns: { id: true },
+    });
+
+    const increment = skillCurriculumNodesForSkill.length > 0
+        ? 100 / skillCurriculumNodesForSkill.length
+        : 0;
+
+    let newStrength = Math.min(currentStrength + increment, 100);
+    newStrength = Number(newStrength.toFixed(2));
+
+    await db
+        .insert(userSkills)
+        .values({
+            userId,
+            skillId: curriculumNode.skillId,
+            strengthScore: newStrength.toString(),
+        })
+        .onConflictDoUpdate({
+            target: [userSkills.userId, userSkills.skillId],
+            set: {
+                strengthScore: newStrength.toString(),
+            },
+        });
 
     if (skillFullyCompleted) {
-        newStrength = Math.min(currentStrength + 15, 100);
-
-        await db
-            .insert(userSkills)
-            .values({
-                userId,
-                skillId: curriculumNode.skillId,
-                strengthScore: newStrength.toString(),
-            })
-            .onConflictDoUpdate({
-                target: [userSkills.userId, userSkills.skillId],
-                set: {
-                    strengthScore: newStrength.toString(),
-                },
-            });
-
         const activeRoadmap = await db.query.roadmaps.findFirst({
             where: eq(roadmaps.id, node.roadmapId)
         });
@@ -294,7 +325,8 @@ type RoadmapResponseNode = {
 type PendingRoadmapNodeInsert = {
     curriculumNodeId: string;
     orderIndex: number;
-    status: "pending";
+    status: "pending" | "inProgress" | "completed";
+    priority: "high" | "medium";
 };
 
 type SkillDependencyRow = {
@@ -452,6 +484,7 @@ async function generateLearningRoadmapInternal({
                 curriculumNodeId: node.id,
                 orderIndex: globalOrder,
                 status: "pending",
+                priority: roadmapItem.priority,
             });
 
             responseNodes.push({
@@ -505,6 +538,16 @@ async function generateLearningRoadmapInternal({
             .insert(roadmapNodes)
             .values(roadmapNodeInserts)
             .returning();
+
+        const firstPending = insertedRoadmapNodes[0];
+        if (firstPending) {
+            await tx
+                .update(roadmapNodes)
+                .set({ status: "inProgress" })
+                .where(eq(roadmapNodes.id, firstPending.id));
+            
+            firstPending.status = "inProgress";
+        }
 
         return {
             roadmap: createdRoadmap,
