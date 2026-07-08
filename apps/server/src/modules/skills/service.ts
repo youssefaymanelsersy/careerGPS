@@ -270,16 +270,17 @@ export async function syncGithubSkillsForUser({
             }
         }
     }   
-    const converStrengthToLevel = (strength : number)=>{
-        if(strength<30){
-            return "beginner" ;
-        }
-        return (strength<60)? "intermediate" : "expert" ;
-    }
+    // const converStrengthToLevel = (strength : number)=>{
+    //     if(strength<30){
+    //         return "beginner" ;
+    //     }
+    //     return (strength<60)? "intermediate" : "expert" ;
+    // }
     const githubSkills = [...combinedSkillStrengths.entries()].map(
     ([skill, strength]) => ({
         "skillName":skill,
-        "level": converStrengthToLevel(strength),
+        "strength": strength
+        // "level": converStrengthToLevel(strength),
     })
 );
     

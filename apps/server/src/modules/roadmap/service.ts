@@ -315,7 +315,7 @@ async function generateLearningRoadmapInternal({
     roleId: string;
 }) {
     await evaluateUserForRole( {userId , roleId} );
-    console.log("report done");
+
     const gapRows = await db
         .select()
         .from(skillGapResults)
@@ -325,7 +325,7 @@ async function generateLearningRoadmapInternal({
     if (gapRows.length === 0) {
         return { message: "No skill gaps found. You're ready." };
     }
-    console.log("Gap :",gapRows);
+
     const gapRow = gapRows[0]!;
     const parsedGaps = typeof gapRow.missingSkills === "string"
         ? JSON.parse(gapRow.missingSkills)
@@ -412,7 +412,7 @@ async function generateLearningRoadmapInternal({
     }
 
     const sorted = topologicallySortSkills(roadmapMap, dependencies as SkillDependencyRow[]);
-    console.log("sorted",sorted)
+
     const allCurriculumNodes = await db.query.skillCurriculumNodes.findMany({
         where: inArray(skillCurriculumNodes.skillId, sorted),
         orderBy: asc(skillCurriculumNodes.orderIndex),
@@ -500,11 +500,11 @@ async function generateLearningRoadmapInternal({
             roadmapId: createdRoadmap.id,
             ...values,
         }));
-        console.log("roadmapNodeInserts :",roadmapNodeInserts);
+        
         const insertedRoadmapNodes = await tx
             .insert(roadmapNodes)
             .values(roadmapNodeInserts)
-            .returning({ id: roadmapNodes.id });
+            .returning();
 
         return {
             roadmap: createdRoadmap,
@@ -512,17 +512,17 @@ async function generateLearningRoadmapInternal({
         };
     });
 
-    const nodeIds = insertedNodes.map((inserted) => inserted.id);
-
     return {
         roadmapId: roadmap.id,
         totalNodes: responseNodes.length,
-        nodes: responseNodes.map((node, index) => ({
-            step: node.step,
-            nodeId: nodeIds[index],
-            skillName: node.skillName,
+        nodes: responseNodes.map((node , index) => ({
+            orderIndex: node.step,
+            nodeId: insertedNodes[index]?.id,
+            status: insertedNodes[index]?.status,
             curriculumTitle: node.curriculumTitle,
+            skillName: node.skillName,
             priority: node.priority,
+            completedAt: insertedNodes[index]?.completedAt,
         })),
         skillsMissingCurriculum,
     };

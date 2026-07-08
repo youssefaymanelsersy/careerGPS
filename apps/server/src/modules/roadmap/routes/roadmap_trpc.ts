@@ -5,7 +5,7 @@ import {
 } from "@/modules/roadmap/service";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roadmaps, roadmapNodes ,skillCurriculumNodes} from "@/db/schema";
+import { roadmaps, roadmapNodes, skillCurriculumNodes, roleSkills } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
@@ -48,9 +48,9 @@ export const roadmapRouter = router({
         }),
 
     getActiveRoadmap: protectedProcedure
-        .input(z.object({ roleId: z.string() }))
+        .input(z.object({ roleId: z.string().uuid() }))
         .query(async ({ ctx, input }) => {
-            return db.query.roadmaps.findFirst({
+            const roadmap =await db.query.roadmaps.findFirst({
                 where: and(
                     eq(roadmaps.userId, ctx.session.user.id),
                     eq(roadmaps.roleId, input.roleId),
@@ -58,17 +58,60 @@ export const roadmapRouter = router({
                 ),
                 with: {
                     nodes: {
+                        columns:{
+                            id:true,
+                            orderIndex:true,
+                            status:true,
+                            completedAt:true
+                        },
                         orderBy: asc(roadmapNodes.orderIndex),
                         with: {
                             curriculumNode: {
+                                columns:{
+                                    title:true,
+                                    skillId:true,
+                                },
                                 with: {
-                                    skill: true,
+                                    skill: {
+                                        columns: {
+                                            name: true,
+                                        },
+                                    },
                                 }
                             }
                         }
                     }
                 }
             });
+
+            if(!roadmap){
+                throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: "Roadmap not found"
+                });
+            }
+
+            const roleSkillRows = await db.query.roleSkills.findMany({
+                where: eq(roleSkills.roleId, input.roleId),
+            });
+
+            const rolePriorityBySkill = new Map<string, "high" | "medium">(
+                roleSkillRows.map((row) => [row.skillId, row.isCore ? "high" : "medium"])
+            );
+
+            return {
+                roadmapId: roadmap.id,
+                totalNodes: roadmap.nodes.length,
+                nodes: roadmap.nodes.map((node) => ({
+                    orderIndex: node.orderIndex,
+                    nodeId: node.id,
+                    status: node.status,
+                    curriculumTitle: node.curriculumNode.title,
+                    skillName: node.curriculumNode.skill.name,
+                    priority: rolePriorityBySkill.get(node.curriculumNode.skillId) ?? "medium",
+                    completedAt: node.completedAt,
+                })),
+            };
         }),
         
     getUserRoadmaps: protectedProcedure

@@ -41,9 +41,6 @@ export const roadmapNodes = pgTable("roadmap_nodes", {
 
     status: text("status").notNull().default("pending"),
     orderIndex: integer("order_index").notNull(),
-
-    completedInternalSteps: jsonb("completed_internal_steps").default('[]').notNull(), //to be edited
-
     completedAt: timestamp("completed_at"),
 });
 

@@ -5,7 +5,7 @@ import { auth } from "@/shared/auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/shared/storage/cloudinary";
 import { responseBodySchema } from '../parsedCv_schema';
-import { eq, name } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { db } from "@/db";
 import { cv } from "@/db/schema";
 import { randomUUID, type UUID } from "crypto";
@@ -107,7 +107,7 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
         status,
         "skills" :technical.map((skill)=>({
           "skillName":skill.name ,
-          "level":(!skill.level)? "beginner":"intermediate",
+          "strength":(!skill.level)? 0 : 40 ,
         })) ,
       });
 
