@@ -73,7 +73,9 @@ export function ScoreMatchingUpload({
 			{/* Job description */}
 			<div>
 				<p className="text-sm font-medium mb-2">Job Description</p>
-				<Tabs value={mode} onValueChange={(v) => setMode(v as JobDescMode)}>
+				<Tabs value={mode} onValueChange={(v) => {
+					if (v === "text" || v === "image") setMode(v);
+				}}>
 					<TabsList className="w-96">
 						<TabsTrigger value="text">
 							<TypeIcon className="size-3.5" />

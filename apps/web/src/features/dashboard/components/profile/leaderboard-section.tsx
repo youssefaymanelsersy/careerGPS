@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { TIER_COLORS, calculateTier, type GamificationTier, type GlobalLeaderboard, type RoleLeaderboard } from "./profile.types";
 import { Crown, Diamond, Globe, Medal, Star, Trophy, Users } from "lucide-react";
 
+type LeaderboardEntry = { userId: string; name: string; image: string; roleId: string; finalScore: number; activityScore: number; tier: "Bronze" | "Silver" | "Gold" | "Diamond" | "Master" };
+
 interface LeaderboardSectionProps {
 	globalLeaderboard: GlobalLeaderboard | undefined;
 	roleLeaderboard: RoleLeaderboard | undefined;
@@ -38,10 +40,10 @@ function LeaderboardTable({ entries, currentUserId }: LeaderboardTableProps) {
 
 	return (
 		<div className="space-y-2">
-			{entries.map((entry: any, index: number) => {
+			{entries.map((entry: LeaderboardEntry, index: number) => {
 				const rank = index + 1;
-				const colors = TIER_COLORS[entry.tier as GamificationTier];
-				const TierIcon = TIER_ICONS[entry.tier as GamificationTier];
+				const colors = TIER_COLORS[entry.tier];
+				const TierIcon = TIER_ICONS[entry.tier];
 				const isCurrentUser = entry.userId === currentUserId;
 				const initials = entry.name
 					.split(" ")

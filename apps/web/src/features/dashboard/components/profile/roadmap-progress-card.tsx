@@ -4,6 +4,8 @@ import { scoreTier, scoreBgClass } from "@/features/dashboard/utils";
 import type { ActiveRoadmap } from "./profile.types";
 import { Map, CheckCircle, Clock, Lock } from "lucide-react";
 
+type RoadmapNode = NonNullable<ActiveRoadmap["nodes"]>[number];
+
 interface RoadmapProgressCardProps {
 	roadmap: ActiveRoadmap | undefined;
 	isLoading: boolean;
@@ -49,8 +51,8 @@ export function RoadmapProgressCard({ roadmap, isLoading }: RoadmapProgressCardP
 	}
 
 	const nodes = roadmap.nodes || [];
-	const completedNodes = nodes.filter((n: any) => n.status === "completed");
-	const inProgressNodes = nodes.filter((n: any) => n.status === "inProgress");
+	const completedNodes = nodes.filter((n: RoadmapNode) => n.status === "completed");
+	const inProgressNodes = nodes.filter((n: RoadmapNode) => n.status === "inProgress");
 	const completionPercentage = nodes.length > 0 ? (completedNodes.length / nodes.length) * 100 : 0;
 
 	return (
@@ -103,7 +105,7 @@ export function RoadmapProgressCard({ roadmap, isLoading }: RoadmapProgressCardP
 				{inProgressNodes.length > 0 && (
 					<div className="space-y-2">
 						<p className="text-xs font-medium text-muted-foreground">Current Focus</p>
-						{inProgressNodes.slice(0, 2).map((node: any) => (
+						{inProgressNodes.slice(0, 2).map((node: RoadmapNode) => (
 							<div key={node.nodeId} className="rounded-lg border bg-surface p-3">
 								<p className="font-medium text-sm">{node.curriculumTitle}</p>
 								<p className="text-xs text-muted-foreground">{node.skillName}</p>

@@ -36,7 +36,14 @@ interface AtsResultsProps {
 export function AtsResults({ data, onReset }: AtsResultsProps) {
 	const scoreEntries = Object.entries(data.scores);
 	const percentage = Math.round((data.total_score / data.total_max) * 100);
-	const statIcons = [
+	interface StatIconItem {
+		icon: React.ComponentType<{ className?: string }>;
+		label: string;
+		value: string | number;
+		tint?: string;
+	}
+
+	const statIcons: StatIconItem[] = [
 		{ icon: FileTextIcon, label: "Pages", value: data.ats_report.page_count },
 		{
 			icon: TypeIcon,
@@ -50,8 +57,8 @@ export function AtsResults({ data, onReset }: AtsResultsProps) {
 			value: data.ats_report.missing_sections.length,
 			tint:
 				data.ats_report.missing_sections.length > 0
-					? ("text-warning" as const)
-					: ("text-success" as const),
+					? "text-warning"
+					: "text-success",
 		},
 	];
 

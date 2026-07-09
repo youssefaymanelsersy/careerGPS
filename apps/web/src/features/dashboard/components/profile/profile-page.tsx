@@ -35,8 +35,8 @@ export function ProfilePage() {
 		return <div>Not authenticated</div>;
 	}
 
-	const finalScore = latestReport && (latestReport as any).report ? Number((latestReport as any).report.overallReadinessScore) : 0;
-	const activityScore = latestReport && (latestReport as any).report ? Number((latestReport as any).report.generalGithubScore) : 0;
+	const finalScore = Number(latestReport?.report?.overallReadinessScore ?? 0);
+	const activityScore = Number(latestReport?.report?.generalGithubScore ?? 0);
 	const tierInfo = getTierInfo(finalScore, activityScore);
 
 	const isLoading = isSkillsLoading || isRoleLoading || isReportLoading || isGlobalLoading || isRoleLeaderboardLoading || isRoadmapLoading;
@@ -45,7 +45,7 @@ export function ProfilePage() {
 		<div className="space-y-6">
 			<ProfileHero
 				user={session.user}
-				roleTitle={(role as any)?.title || null}
+				roleTitle={role?.title ?? null}
 				finalScore={finalScore}
 				activityScore={activityScore}
 			/>
@@ -58,21 +58,21 @@ export function ProfilePage() {
 					<ProfileStats
 						readinessScore={finalScore}
 						activityScore={activityScore}
-						skillsCount={(skills as any[])?.length || 0}
+						skillsCount={skills?.length ?? 0}
 						projectsCount={0}
 					/>
 				</div>
 			</div>
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<SkillsOverview skills={(skills as any[]) || []} />
-				<RoadmapProgressCard roadmap={activeRoadmap as any} isLoading={isRoadmapLoading} />
+				<SkillsOverview skills={skills ?? []} />
+				<RoadmapProgressCard roadmap={activeRoadmap} isLoading={isRoadmapLoading} />
 			</div>
 
 			<LeaderboardSection
-				globalLeaderboard={globalLeaderboard as any}
-				roleLeaderboard={roleLeaderboard as any}
-				roleTitle={(role as any)?.title || null}
+				globalLeaderboard={globalLeaderboard}
+				roleLeaderboard={roleLeaderboard}
+				roleTitle={role?.title ?? null}
 				currentUserId={session.user.id}
 				isLoading={isGlobalLoading || isRoleLeaderboardLoading}
 			/>
