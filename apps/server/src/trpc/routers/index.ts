@@ -9,6 +9,7 @@ import { readinessRouter } from "../../modules/roadmap/routes/readiness_trpc";
 import { userRouter } from "@/modules/user/routes/user_trpc";
 import { curriculumRouter } from "@/modules/skills/routes/circurriculum_route";
 import { ResourcesRouter } from "@/modules/skills/routes/resources_route";
+import { calendarRouter } from "@/modules/calendar/routes/calendar_trpc";
 
 export const appRouter = router({
     auth: authRouter,
@@ -20,7 +21,8 @@ export const appRouter = router({
     readiness: readinessRouter,
     user: userRouter ,
     curriculum:curriculumRouter,
-    Resources:ResourcesRouter
+    Resources:ResourcesRouter,
+    calendar: calendarRouter
 });
 
 export type AppRouter = typeof appRouter;
