@@ -9,6 +9,8 @@ import { userRouter } from "@/modules/user/routes/user_trpc";
 import { curriculumRouter } from "@/modules/skills/routes/circurriculum_route";
 import { ResourcesRouter } from "@/modules/skills/routes/resources_route";
 import { calendarRouter } from "@/modules/calendar/routes/calendar_trpc";
+import { notificationsRouter } from "@/modules/notifications/routes/notifications_trpc";
+import { streaksRouter } from "@/modules/streaks/routes/streaks_trpc";
 import { aiRouter } from "./ai.router";
 
 export const appRouter = router({
@@ -23,6 +25,8 @@ export const appRouter = router({
     curriculum:curriculumRouter,
     Resources:ResourcesRouter,
     calendar: calendarRouter,
+    notifications: notificationsRouter,
+    streaks: streaksRouter,
 });
 
 export type AppRouter = typeof appRouter;

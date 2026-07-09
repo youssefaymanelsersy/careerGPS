@@ -67,5 +67,14 @@ export const userRouter = router({
             }
 
             return role;
+        }),
+
+    heartbeat: protectedProcedure
+        .mutation(async ({ ctx }) => {
+            const userId = ctx.session.user.id;
+            await db.update(user)
+                .set({ lastSeenAt: new Date() })
+                .where(eq(user.id, userId));
+            return { success: true };
         })
 });

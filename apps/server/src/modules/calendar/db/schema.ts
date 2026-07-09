@@ -19,6 +19,8 @@ export const calendarEvents = pgTable("calendar_events", {
     startTime: time("start_time").notNull(),
     endTime: time("end_time").notNull(),
     status: calendarEventStatusEnum("status").default("scheduled").notNull(),
+    reminderAt: timestamp("reminder_at", { withTimezone: true }),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
         .defaultNow()
