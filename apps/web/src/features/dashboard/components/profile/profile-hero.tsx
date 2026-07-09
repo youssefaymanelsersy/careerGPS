@@ -1,0 +1,79 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { TIER_COLORS, calculateTier, type GamificationTier } from "./profile.types";
+import { Briefcase, Crown, Diamond, Medal, Star, Trophy } from "lucide-react";
+
+interface ProfileHeroProps {
+	user: {
+		name: string;
+		email: string;
+		image?: string | null;
+		roleId?: string | null;
+	};
+	roleTitle?: string | null;
+	finalScore: number;
+	activityScore: number;
+}
+
+const TIER_ICONS: Record<GamificationTier, React.ComponentType<{ className?: string }>> = {
+	Bronze: Medal,
+	Silver: Star,
+	Gold: Trophy,
+	Diamond: Diamond,
+	Master: Crown,
+};
+
+export function ProfileHero({ user, roleTitle, finalScore, activityScore }: ProfileHeroProps) {
+	const tier = calculateTier(finalScore, activityScore);
+	const colors = TIER_COLORS[tier];
+	const TierIcon = TIER_ICONS[tier];
+	const initials = user.name
+		.split(" ")
+		.map((n) => n[0])
+		.join("")
+		.toUpperCase()
+		.slice(0, 2);
+
+	return (
+		<Card className="overflow-hidden">
+			<div className={`h-2 bg-gradient-to-r ${colors.gradient}`} />
+			<CardContent className="p-6">
+				<div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+					<Avatar className="size-20">
+						<AvatarImage src={user.image || undefined} alt={user.name} />
+						<AvatarFallback className="text-lg">{initials}</AvatarFallback>
+					</Avatar>
+
+					<div className="flex-1 space-y-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className="text-2xl font-bold">{user.name}</h1>
+							<Badge variant={tier === "Master" ? "default" : "default"} className={colors.text}>
+								<TierIcon className="size-3" />
+								{tier}
+							</Badge>
+						</div>
+						<p className="text-sm text-muted-foreground">{user.email}</p>
+						{roleTitle && (
+							<div className="flex items-center gap-1.5 text-sm">
+								<Briefcase className="size-4 text-muted-foreground" />
+								<span className="font-medium">{roleTitle}</span>
+							</div>
+						)}
+					</div>
+
+					<div className="flex gap-4 sm:flex-col sm:items-end">
+						<div className="text-center sm:text-right">
+							<p className="text-2xl font-bold tabular-nums">{Math.round(finalScore)}</p>
+							<p className="text-xs text-muted-foreground">Readiness</p>
+						</div>
+						<div className="text-center sm:text-right">
+							<p className="text-2xl font-bold tabular-nums">{Math.round(activityScore)}</p>
+							<p className="text-xs text-muted-foreground">Activity</p>
+						</div>
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
