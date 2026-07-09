@@ -54,19 +54,6 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
     url = uploaded.url;
     publicId = uploaded.publicId;
 
-
-    // 2 - save the uploaded cv data in db
-    await db.insert(cv).values({
-      id,
-      userId,
-      fileUrl: url,
-      publicId,
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      status: "pending",
-    });
-
-
     // 3 - parse cv data
     const parserBody = await parseCVData(id, url);
 
@@ -87,20 +74,27 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
 
     if (cvId !== id) {
       console.warn("cvId mismatch from parser service", { sent: id, received: cvId, parserBody });
-
-      await db.update(cv).set({ status: "failed" }).where(eq(cv.id, id));
       if (publicId) await deleteFromCloudinary(publicId);
-
       return res.status(500).json({ errorMessage: "Invalid payload from parser service" });
     }
 
-    if (status === "completed") {
+    if (status === "completed") {    
+
       const { parsedData } = cvData;
       const {technical} = parsedData.skills ;
-      await db
-        .update(cv)
-        .set({ parsedData: parsedData ?? null, status: "completed" })
-        .where(eq(cv.id, id));
+   
+      // 2 - save the uploaded cv data in db
+      await db.insert(cv).values({
+        id,
+        userId,
+        fileUrl: url,
+        publicId,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        status: "completed" ,
+        parsedData: parsedData ?? null,
+
+      });
 
       return res.status(200).json({
         cvId: id,
@@ -114,24 +108,16 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
     } else if (status === "failed") {
       const { errorMessage } = cvData;
 
-      await db
-        .update(cv)
-        .set({ status: "failed", errorMessage: errorMessage ?? null })
-        .where(eq(cv.id, id));
-
       if (publicId) await deleteFromCloudinary(publicId);
 
-      return res.status(200).json({
-        cvId: id,
-        status,
-        errorMessage,
-      });
+      console.log("ai parser error :",errorMessage);
+      return res.status(500).json({ errorMessage: "ai service error" });
+
 
     } else {
       // exhaustive fallback - guarantees we never hang without a response
       console.error("Unhandled parser status", status, parserBody);
 
-      await db.update(cv).set({ status: "failed" }).where(eq(cv.id, id));
       if (publicId) await deleteFromCloudinary(publicId);
 
       return res.status(500).json({ error: "Unexpected status from parser service" });
@@ -148,14 +134,6 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
         console.error(cleanupError);
       }
     }
-
-    // update db if row exists
-    try {
-      await db.update(cv).set({ status: "failed" }).where(eq(cv.id, id));
-    } catch (dbError) {
-      console.error("cant update cv status in database:", dbError);
-    }
-
     return res.status(500).json({
       error: "Failed to upload CV",
     });
