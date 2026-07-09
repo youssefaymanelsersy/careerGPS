@@ -6,6 +6,7 @@ import { trpc } from "../../utils/trpc";
 import type { ActiveRoadmapNode, ApiRoadmapNode } from "./roadmap.data";
 import { authClient } from "../../lib/auth-client";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export function RoadmapPage() {
   const { data: session, isPending: isSessionLoading } = authClient.useSession();
@@ -29,8 +30,8 @@ export function RoadmapPage() {
   const generateMutation = useMutation<any, Error, { roleId: string }>(
     trpc.roadmap.generate.mutationOptions({
       onSuccess: async (data: { skillsMissingCurriculum?: string[] }) => {
-      if (data?.skillsMissingCurriculum && data.skillsMissingCurriculum.length > 0) {
-          alert(`Note: The following skills don't have learning content yet: ${data.skillsMissingCurriculum.join(', ')}`);
+        if (data?.skillsMissingCurriculum && data.skillsMissingCurriculum.length > 0) {
+          toast.warning(`The following skills don't have learning content yet: ${data.skillsMissingCurriculum.join(', ')}`, { position: "top-center" });
         }
         if (roleId) {
           await queryClient.invalidateQueries(
@@ -39,7 +40,7 @@ export function RoadmapPage() {
         }
       },
       onError: (error: Error) => {
-        alert(error?.message || "Failed to generate roadmap.");
+        toast.error(error?.message || "Failed to generate roadmap.", { position: "top-center" });
       },
     }) as any
   );
@@ -55,7 +56,7 @@ export function RoadmapPage() {
         }
       },
       onError: (error: Error) => {
-        alert(error?.message || "Failed to save progress. Please try again.");
+        toast.error(error?.message || "Failed to save progress. Please try again.", { position: "top-center" });
       },
     }) as any
   );
@@ -107,7 +108,7 @@ export function RoadmapPage() {
 
       // Check for skill progression data from the backend contract
       if (result?.newStrength) {
-        alert(`Awesome! Your strength in ${completedNode?.skillName} increased to ${result.newStrength}.${result.skillFullyCompleted ? ' You have fully mastered this skill!' : ''}`);
+        toast.success(`Awesome! Your strength in ${completedNode?.skillName} increased to ${result.newStrength}.${result.skillFullyCompleted ? ' You have fully mastered this skill!' : ''}`, { position: "top-center" });
       }
 
       if (isLastNode) {
@@ -152,7 +153,7 @@ export function RoadmapPage() {
   const selectedStep = mappedNodes.find((n) => n.nodeId === selectedId) || mappedNodes[0];
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-black text-zinc-900 dark:text-white font-sans">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white font-sans">
       <header className="flex items-center justify-between px-7 pt-5 pb-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
         <div>
           <h1 className="text-[22px] font-bold m-0">Career Path</h1>
@@ -160,8 +161,8 @@ export function RoadmapPage() {
         </div>
       </header>
 
-      <div className="flex flex-row flex-1 overflow-hidden min-h-0 relative">
-        <section className="flex-1 overflow-auto w-full h-full md:border-r border-zinc-200 dark:border-zinc-800 min-w-0">
+      <div className="flex flex-row flex-1 relative">
+        <section className="flex-1 w-full md:border-r border-zinc-200 dark:border-zinc-800 min-w-0">
           <RoadmapCanvas
             nodes={mappedNodes}
             selectedId={selectedId}
@@ -182,7 +183,7 @@ export function RoadmapPage() {
         <aside
           className={`
             fixed top-0 h-full z-[100] bg-zinc-50 dark:bg-[#0a0a0a] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out w-[85%] max-w-[380px] overflow-y-auto
-            md:static md:w-[300px] md:shrink-0 md:shadow-none md:transition-none
+            md:sticky md:top-0 md:max-h-screen md:w-[300px] md:shrink-0 md:shadow-none md:transition-none
             ${isMobileDrawerOpen ? "right-0" : "right-[-100%] md:right-0"}
           `}
         >

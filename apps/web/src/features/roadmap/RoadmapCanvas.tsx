@@ -18,9 +18,9 @@ function NodeCard({ node, isSelected, onClick }: { node: ActiveRoadmapNode; isSe
   const H = NODE_HEIGHT;
 
   const cfg = {
-    completed: { bg: "#ffffff", border: "#10b981", accentBar: "#10b981", title: "#000000", label: "#10b981", icon: "✓", statusText: "COMPLETED", opacity: 1, cursor: "pointer" },
-    inProgress: { bg: "#ffffff", border: "#3b82f6", accentBar: "#3b82f6", title: "#000000", label: "#3b82f6", icon: "▶", statusText: "YOU ARE HERE", opacity: 1, cursor: "pointer" },
-    pending: { bg: "#f9fafb", border: "#e5e7eb", accentBar: "#e5e7eb", title: "#9ca3af", label: "#9ca3af", icon: "🔒", statusText: "LOCKED", opacity: 0.7, cursor: "default" },
+    completed: { bg: "var(--card)", border: "var(--success)", accentBar: "var(--success)", title: "var(--foreground)", label: "var(--success)", icon: "✓", statusText: "COMPLETED", opacity: 1, cursor: "pointer" },
+    inProgress: { bg: "var(--card)", border: "var(--info)", accentBar: "var(--info)", title: "var(--foreground)", label: "var(--info)", icon: "▶", statusText: "YOU ARE HERE", opacity: 1, cursor: "pointer" },
+    pending: { bg: "var(--surface)", border: "var(--border)", accentBar: "var(--border)", title: "var(--muted-foreground)", label: "var(--muted-foreground)", icon: "🔒", statusText: "LOCKED", opacity: 1, cursor: "default" },
   } as const;
 
   const c = cfg[node.status];
@@ -53,14 +53,14 @@ export function RoadmapCanvas({ nodes, selectedId, onSelect }: Props) {
   return (
     <div className="roadmap-canvas-scroll">
       <svg width="100%" viewBox={`0 0 ${viewBoxWidth} ${canvasH}`} style={{ display: "block", minHeight: canvasH }}>
-        <defs><pattern id="cgps-grid" width={24} height={24} patternUnits="userSpaceOnUse"><circle cx={1} cy={1} r={0.8} fill="var(--node-grid, #e5e7eb)" /></pattern></defs>
+        <defs><pattern id="cgps-grid" width={24} height={24} patternUnits="userSpaceOnUse"><circle cx={1} cy={1} r={0.8} fill="var(--border)" /></pattern></defs>
         <rect width={viewBoxWidth} height={canvasH} fill="url(#cgps-grid)" />
         {nodes.map((node, i) => {
           if (i === nodes.length - 1) return null; 
           const posA = getDynamicPosition(i, isMobile);
           const posB = getDynamicPosition(i + 1, isMobile);
           const isDone = node.status === "completed";
-          return <path key={`path-${i}`} d={generatePath(posA.x + NODE_WIDTH / 2, posA.y + NODE_HEIGHT, posB.x + NODE_WIDTH / 2, posB.y)} fill="none" stroke={isDone ? "#10b981" : "#e5e7eb"} strokeWidth={isDone ? 2 : 1.5} strokeDasharray={isDone ? "none" : "5 5"} opacity={isDone ? 1 : 0.6} />;
+          return <path key={`path-${i}`} d={generatePath(posA.x + NODE_WIDTH / 2, posA.y + NODE_HEIGHT, posB.x + NODE_WIDTH / 2, posB.y)} fill="none" stroke={isDone ? "var(--success)" : "var(--foreground)"} strokeWidth={isDone ? 2 : 1.5} strokeDasharray={isDone ? "none" : "5 5"} opacity={isDone ? 1 : 0.6} />;
         })}
         {nodes.map((node, i) => (
           <g key={node.nodeId} transform={`translate(${getDynamicPosition(i, isMobile).x}, ${getDynamicPosition(i, isMobile).y})`}>
