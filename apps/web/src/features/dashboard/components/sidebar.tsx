@@ -18,7 +18,7 @@ import { Link, useLocation } from "react-router"
 
 
 export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const {data: session,isPending} = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const location = useLocation();
   return (
     <Sidebar {...props}>
