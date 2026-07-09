@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon } from "lucide-react"
+import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon, Calendar } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link, useLocation } from "react-router"
@@ -60,6 +60,12 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
             <SidebarMenuButton isActive={location.pathname === "/roadmap"} render={<Link to="/roadmap" />}>
               <MapIcon className="size-4" />
               <span>Roadmap</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/calendar"} render={<Link to="/calendar" />}>
+              <Calendar className="size-4" />
+              <span>Calendar</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
