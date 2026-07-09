@@ -1,127 +1,213 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { RoadmapCanvas } from "./RoadmapCanvas";
 import { RoadmapDetails } from "./RoadmapDetails";
-import { fetchRoadmapData, completeRoadmapNode } from "./roadmap.service";
-import type { RoadmapNode } from "./roadmap.data";
-import "./roadmap.css";
+import { trpc } from "../../utils/trpc";
+import type { ActiveRoadmapNode, ApiRoadmapNode } from "./roadmap.data";
+import { authClient } from "../../lib/auth-client";
+import { Loader2 } from "lucide-react";
 
 export function RoadmapPage() {
-  const [nodes, setNodes] = useState<RoadmapNode[]>([]);
-  const [trackName, setTrackName] = useState<string>("");
+  const { data: session, isPending: isSessionLoading } = authClient.useSession();
+  const roleId = (session?.user as { roleId?: string } | undefined)?.roleId ;
+  
   const [selectedId, setSelectedId] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
   const [showCongrats, setShowCongrats] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const data = await fetchRoadmapData();
-        setTrackName(data.trackName);
-        setNodes(data.nodes);
-        
-        const current = data.nodes.find((n) => n.status === "in-progress") || data.nodes[0];
-        if (current) setSelectedId(current.id);
-      } catch (error) {
-        console.error("Error loading roadmap:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  const queryClient = useQueryClient();
 
-  async function handleMarkComplete(id: string) {
-    try {
-      await completeRoadmapNode(id);
-      
-      const currentIndex = nodes.findIndex((n) => n.id === id);
-      const isLastNode = currentIndex === nodes.length - 1;
+  // 1. Fetch Active Roadmap (Extract mapError to check for 404s)
+  const { data: roadmapData, isLoading: isMapLoading, error: mapError } = useQuery<{ nodes: ApiRoadmapNode[] }, Error>(
+    trpc.roadmap.getActiveRoadmap.queryOptions(
+      { roleId: roleId! },
+      { enabled: !!roleId, retry: false } // Prevent retrying on 404s
+    ) as any
+  );
 
-      setNodes((prev) => {
-        const updated = [...prev];
-        if (currentIndex !== -1) {
-          updated[currentIndex] = { ...updated[currentIndex], status: "completed" };
-          
-          const nextNode = updated[currentIndex + 1];
-          if (nextNode) {
-            updated[currentIndex + 1] = { ...nextNode, status: "in-progress" };
-            setSelectedId(nextNode.id); 
-          }
+  // 2. Generation Mutation (Handles missing roadmaps + curriculum warnings)
+  const generateMutation = useMutation<any, Error, { roleId: string }>(
+    trpc.roadmap.generate.mutationOptions({
+      onSuccess: async (data: { skillsMissingCurriculum?: string[] }) => {
+      if (data?.skillsMissingCurriculum && data.skillsMissingCurriculum.length > 0) {
+          alert(`Note: The following skills don't have learning content yet: ${data.skillsMissingCurriculum.join(', ')}`);
         }
-        return updated;
-      });
+        if (roleId) {
+          await queryClient.invalidateQueries(
+            trpc.roadmap.getActiveRoadmap.queryFilter({ roleId })
+          );
+        }
+      },
+      onError: (error: Error) => {
+        alert(error?.message || "Failed to generate roadmap.");
+      },
+    }) as any
+  );
 
-      if (isLastNode) setShowCongrats(true);
+  // 3. Complete Node Mutation (Handles skill progression feedback)
+  const completeNodeMutation = useMutation<any, Error, { nodeId: string }>(
+    trpc.roadmap.completeNode.mutationOptions({
+      onSuccess: async () => {
+        if (roleId) {
+          await queryClient.invalidateQueries(
+            trpc.roadmap.getActiveRoadmap.queryFilter({ roleId })
+          );
+        }
+      },
+      onError: (error: Error) => {
+        alert(error?.message || "Failed to save progress. Please try again.");
+      },
+    }) as any
+  );
+
+  const mappedNodes = useMemo<ActiveRoadmapNode[]>(() => {
+    if (!roadmapData?.nodes) return [];
+
+    const sorted = [...roadmapData.nodes].sort((a, b) => a.orderIndex - b.orderIndex);
+    const unlockedForSkill = new Set<string>();
+
+    return sorted.map((node) => {
+      let computedStatus: ActiveRoadmapNode["status"] = node.status;
+
+      if (node.status === "pending" && !unlockedForSkill.has(node.skillName)) {
+        computedStatus = "inProgress";
+        unlockedForSkill.add(node.skillName);
+      }
+
+      return {
+        ...node,
+        status: computedStatus,
+        priority: "medium", 
+      };
+    });
+  }, [roadmapData?.nodes]);
+
+  useEffect(() => {
+    if (mappedNodes.length > 0 && !selectedId) {
+      const current = mappedNodes.find((n) => n.status === "inProgress") || mappedNodes[0];
+      if (current) setSelectedId(current.nodeId);
+    }
+  }, [mappedNodes, selectedId]);
+
+  async function handleMarkComplete(nodeId: string) {
+    if (!mappedNodes.length) return;
+
+    const remainingIncomplete = mappedNodes.filter(
+      (n) => n.nodeId !== nodeId && n.status !== "completed"
+    );
+    const isLastNode = remainingIncomplete.length === 0;
+    const completedNode = mappedNodes.find((n) => n.nodeId === nodeId);
+
+    try {
+      const result = await completeNodeMutation.mutateAsync({ nodeId });
+      
+      if (result?.alreadyCompleted) {
+         return; 
+      }
+
+      // Check for skill progression data from the backend contract
+      if (result?.newStrength) {
+        alert(`Awesome! Your strength in ${completedNode?.skillName} increased to ${result.newStrength}.${result.skillFullyCompleted ? ' You have fully mastered this skill!' : ''}`);
+      }
+
+      if (isLastNode) {
+        setShowCongrats(true);
+      } else {
+        const nextInSameSkill = mappedNodes.find(
+          (n) => n.skillName === completedNode?.skillName && n.status === "pending"
+        );
+        const nextNode = nextInSameSkill ?? remainingIncomplete[0];
+        if (nextNode) {
+          setSelectedId(nextNode.nodeId);
+        }
+      }
     } catch (error) {
-      alert("Failed to save progress. Please try again.");
+      console.error("Mutation failed", error);
     }
   }
 
-  if (isLoading) return <div className="p-8 flex items-center justify-center min-h-screen">Loading Roadmap...</div>;
-  if (!nodes.length) return <div className="p-8 text-center min-h-screen">No roadmap data available.</div>;
+  // Handle Loading & Initialization states
+  if (isSessionLoading || (isMapLoading && !mapError)) return <div className="p-8 flex items-center justify-center min-h-screen"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Roadmap...</div>;
+  if (!roleId) return <div className="p-8 text-center min-h-screen flex items-center justify-center text-zinc-500">Please select a career role to view your roadmap.</div>;
 
-  const selectedNode = nodes.find((n) => n.id === selectedId) || nodes[0];
+  // Handle NOT_FOUND error by offering the generation flow
+  const isNotFound = mapError?.message?.includes("NOT_FOUND") || mapError?.message?.includes("Roadmap not found");
+  if (isNotFound || (!mappedNodes.length && !isMapLoading)) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-screen text-center">
+        <h2 className="text-2xl font-bold mb-3 text-zinc-900 dark:text-white">Ready to start?</h2>
+        <p className="text-zinc-500 mb-6 max-w-md">We couldn't find an active learning path for your role. Generate a personalized roadmap based on your current skill gaps.</p>
+        <button 
+          onClick={() => generateMutation.mutate({ roleId })}
+          disabled={generateMutation.isPending}
+          className="px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded-md flex items-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
+        >
+          {generateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+          {generateMutation.isPending ? "Generating..." : "Generate My Learning Path"}
+        </button>
+      </div>
+    );
+  }
+
+  const selectedStep = mappedNodes.find((n) => n.nodeId === selectedId) || mappedNodes[0];
 
   return (
-    <div className="roadmap-page">
-      <header className="roadmap-page__header">
+    <div className="flex flex-col h-full bg-white dark:bg-black text-zinc-900 dark:text-white font-sans">
+      <header className="flex items-center justify-between px-7 pt-5 pb-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
         <div>
-          <h1 className="roadmap-page__title">Career Path</h1>
-          <p className="roadmap-page__subtitle">{trackName}</p>
-        </div>
-        <div className="roadmap-page__track-badge">
-          {trackName.toUpperCase()}
+          <h1 className="text-[22px] font-bold m-0">Career Path</h1>
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-1">Your Learning Journey</p>
         </div>
       </header>
 
-<div className="roadmap-page__body">
-        <section className="roadmap-page__canvas-col">
-          <RoadmapCanvas 
-            nodes={nodes} 
-            selectedId={selectedId} 
+      <div className="flex flex-row flex-1 overflow-hidden min-h-0 relative">
+        <section className="flex-1 overflow-auto w-full h-full md:border-r border-zinc-200 dark:border-zinc-800 min-w-0">
+          <RoadmapCanvas
+            nodes={mappedNodes}
+            selectedId={selectedId}
             onSelect={(id) => {
               setSelectedId(id);
-              setIsMobileDrawerOpen(true); // Open drawer when a node is tapped
-            }} 
+              setIsMobileDrawerOpen(true);
+            }}
           />
         </section>
 
-        {/* This backdrop only appears when the drawer is open on mobile */}
         {isMobileDrawerOpen && (
-           <div className="roadmap-page__backdrop" onClick={() => setIsMobileDrawerOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] animate-in fade-in duration-300 md:hidden"
+            onClick={() => setIsMobileDrawerOpen(false)}
+          />
         )}
 
-        {/* Add the dynamic 'is-open' class to the aside */}
-        <aside className={`roadmap-page__details-col ${isMobileDrawerOpen ? "is-open" : ""}`}>
-          <RoadmapDetails 
-            node={selectedNode} 
+        <aside
+          className={`
+            fixed top-0 h-full z-[100] bg-zinc-50 dark:bg-[#0a0a0a] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out w-[85%] max-w-[380px] overflow-y-auto
+            md:static md:w-[300px] md:shrink-0 md:shadow-none md:transition-none
+            ${isMobileDrawerOpen ? "right-0" : "right-[-100%] md:right-0"}
+          `}
+        >
+          <RoadmapDetails
+            mapNode={selectedStep}
+            isMutating={completeNodeMutation.isPending}
             onMarkComplete={handleMarkComplete}
             onOpenNext={() => {
-              const currentIndex = nodes.findIndex((n) => n.id === selectedId);
-              const nextNode = nodes[currentIndex + 1];
+              const currentIndex = mappedNodes.findIndex((n) => n.nodeId === selectedId);
+              const nextNode = mappedNodes[currentIndex + 1];
               if (nextNode) {
-                setSelectedId(nextNode.id);
+                setSelectedId(nextNode.nodeId);
               }
             }}
-            onCloseMobile={() => setIsMobileDrawerOpen(false)} // Pass the close function
+            onCloseMobile={() => setIsMobileDrawerOpen(false)}
           />
         </aside>
       </div>
 
       {showCongrats && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#111111] p-8 rounded-xl shadow-2xl flex flex-col items-center max-w-sm text-center border border-zinc-200 dark:border-zinc-800 animate-in zoom-in duration-200">
-            <div className="text-6xl mb-4">🏁</div>
-            <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">
-              Congratulations!
-            </h2>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-              You have successfully completed all the modules in this track. Amazing work!
-            </p>
-            <button onClick={() => setShowCongrats(false)} className="bg-zinc-900 dark:bg-white text-white dark:text-black px-6 py-2 rounded-md font-medium hover:opacity-90 transition-opacity">
-              Close
-            </button>
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-lg shadow-xl text-center max-w-md">
+             <h2 className="text-2xl font-bold mb-2">Congratulations! 🎉</h2>
+             <p className="text-zinc-500 mb-6">You've successfully completed all nodes in your roadmap. You are fully prepared for this role!</p>
+             <button onClick={() => setShowCongrats(false)} className="px-6 py-2 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded-md">Close</button>
           </div>
         </div>
       )}

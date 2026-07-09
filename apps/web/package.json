@@ -6,7 +6,7 @@
     "build": "react-router build",
     "herocn": "node -e \"const args=process.argv.slice(1); require('child_process').execSync('bunx shadcn add '+args.map(n=>'https://herocn.dev/r/'+n+'.json').join(' '),{stdio:'inherit'})\" --",
     "dev": "react-router dev",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "bunx --bun serve build/client",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {

@@ -2,101 +2,122 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { RoadmapNode } from "./roadmap.data";
+import type { ActiveRoadmapNode } from "./roadmap.data";
+import { Loader2 } from "lucide-react"; 
+import { trpc } from "../../utils/trpc";
 
 interface Props {
-  node: RoadmapNode;
+  mapNode: ActiveRoadmapNode;
+  isMutating: boolean;
   onMarkComplete: (id: string) => void;
   onOpenNext: () => void;
   onCloseMobile?: () => void; 
 }
-const DIFF_VARIANT: Record<string, "default" | "foreground" | "primary" | "success" | "warning" | "destructive"> = {
-  Easy: "success",
-  Medium: "warning",
-  Hard: "destructive",
+
+const PRIORITY_VARIANT: Record<string, "default" | "success" | "destructive" | "foreground" | "primary" | "warning"> = {
+  high: "destructive",
+  medium: "warning",
 };
 
-export function RoadmapDetails({ node, onMarkComplete ,onOpenNext,onCloseMobile}: Props) {
-  if (!node) return null;
-  const isLocked = node.status === "locked";
-  const isCompleted = node.status === "completed";
+export function RoadmapDetails({ mapNode, isMutating, onMarkComplete, onOpenNext, onCloseMobile }: Props) {
+  if (!mapNode) return null;
+  
+  const isLocked = mapNode.status === "pending"; 
+  const isCompleted = mapNode.status === "completed";
+  
+  // Fetch detailed info for the active node
+  const { data: nodeDetails, isLoading } = trpc.roadmap.getNodeInfo.useQuery(
+    { nodeId: mapNode.nodeId },
+    { enabled: !!mapNode?.nodeId }
+  );
+
+  const resources = nodeDetails?.resources || [];
 
   return (
-    <div className="roadmap-details">
-     <div className="roadmap-details__header">
-        <div>
-          <h2 className="roadmap-details__title">{node.title}</h2>
-          <p className="roadmap-details__desc">{node.description}</p>
-        </div>
-        <button className="roadmap-details__close-btn" onClick={onCloseMobile}>
-          ✕
-        </button>
-      </div>
-      <Separator className="roadmap-details__sep" />
+    <div className="flex flex-col gap-4 p-5 pb-7 min-h-full">
+      <div className="flex justify-between items-start gap-3">
+        <div className="flex-1">
+          <span className="inline-block px-2.5 py-1 mb-2.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-bold uppercase tracking-widest rounded-md border border-blue-200 dark:border-blue-800/50">
+            Skill: {mapNode.skillName}
+          </span>
+          
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white leading-tight mb-3">
+            {mapNode.curriculumTitle}
+          </h2>
 
-      <div className="roadmap-details__stats">
-        <Card className="roadmap-details__stat-card">
-          <CardContent className="roadmap-details__stat-inner">
-            <span className="roadmap-details__stat-label">DIFF</span>
-            <Badge variant={DIFF_VARIANT[node.difficulty]} className="roadmap-details__stat-badge">
-              {node.difficulty}
-            </Badge>
-          </CardContent>
-        </Card>
-        <Card className="roadmap-details__stat-card">
-          <CardContent className="roadmap-details__stat-inner">
-            <span className="roadmap-details__stat-label">TIME</span>
-            <span className="roadmap-details__stat-value">{node.timeEstimate}</span>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="roadmap-details__learn-card">
-        <CardHeader className="roadmap-details__learn-header">
-          <CardTitle className="roadmap-details__section-label">What you'll learn</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="roadmap-details__learn-list">
-            {node.whatYoullLearn.map((item) => (
-              <li key={item} className="roadmap-details__learn-item">
-                <span className="roadmap-details__check">✓</span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card className="roadmap-details__playlist-card">
-        <CardHeader className="roadmap-details__learn-header">
-          <CardTitle className="roadmap-details__section-label">Recommended playlist</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <a href={node.playlist.url} target="_blank" rel="noopener noreferrer" className="roadmap-details__playlist-thumb">
-            <img src={node.playlist.thumbnail} alt={node.playlist.title} />
-            <div className="roadmap-details__play-overlay">
-              <span className="roadmap-details__play-icon">▶</span>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm italic mb-1">
+               <Loader2 className="w-4 h-4 animate-spin" /> Loading details...
             </div>
-          </a>
-          <p className="roadmap-details__playlist-title">{node.playlist.title}</p>
-          <p className="roadmap-details__playlist-meta">
-            {node.playlist.lessons} lessons · {node.playlist.duration}
-          </p>
+          ) : nodeDetails?.description && (
+            <div className="bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3.5 shadow-sm mb-1">
+              <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed m-0 italic">
+                "{nodeDetails.description}"
+              </p>
+            </div>
+          )}
+        </div>
+        <button className="md:hidden flex items-center justify-center shrink-0 w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white text-base cursor-pointer" onClick={onCloseMobile}>✕</button>
+      </div>
+      
+      <Separator className="bg-zinc-200 dark:bg-zinc-800 m-0" />
+
+      <div className="grid grid-cols-2 gap-2">
+        <Card className="bg-white dark:bg-[#111111] border-zinc-200 dark:border-zinc-800 rounded-md">
+          <CardContent className="flex flex-col items-center gap-1.5 p-2.5">
+            <span className="text-[9px] font-bold tracking-widest text-zinc-500 uppercase">PRIORITY</span>
+            <Badge variant={PRIORITY_VARIANT[mapNode.priority] || "default"} className="text-[11px]">{mapNode.priority}</Badge>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-[#111111] border-zinc-200 dark:border-zinc-800 rounded-md">
+          <CardContent className="flex flex-col items-center gap-1.5 p-2.5">
+            <span className="text-[9px] font-bold tracking-widest text-zinc-500 uppercase">TIME</span>
+            <span className="text-xs font-bold text-zinc-900 dark:text-white">1 hr</span>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-white dark:bg-[#111111] border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm flex-1">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">Learning Resources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+             <div className="flex justify-center p-4">
+                <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+             </div>
+          ) : resources?.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {resources.map((resource: any) => (
+                <a key={resource.id} href={resource.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
+                  <span className="text-xl flex-shrink-0">
+                    {resource.type.toLowerCase().includes('youtube') ? '🎥' : '📄'}
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-900 dark:text-white leading-snug">{resource.title}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{resource.type}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-500 italic">No resources available for this module.</p>
+          )}
         </CardContent>
       </Card>
 
-      <div className="roadmap-details__cta">
+      <div className="mt-2 flex flex-col gap-2 shrink-0">
         {isLocked ? (
-          <Button disabled variant="outline" className="roadmap-details__btn">
-            🔒 Complete previous steps first
-          </Button>
+          <Button disabled variant="outline" className="w-full text-[13px] font-semibold h-[42px]">🔒 Complete previous steps first</Button>
         ) : isCompleted ? (
-          <Button variant="outline" className="roadmap-details__btn" onClick={onOpenNext}>
-            Open next module
-          </Button>
+          <Button variant="outline" className="w-full text-[13px] font-semibold h-[42px]" onClick={onOpenNext}>Open next module</Button>
         ) : (
-          <Button className="roadmap-details__btn roadmap-details__btn--primary" onClick={() => onMarkComplete(node.id)}>
-            Mark as complete and open next
+          <Button 
+            disabled={isMutating} 
+            className="w-full text-[13px] font-semibold h-[42px] bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-black" 
+            onClick={() => onMarkComplete(mapNode.nodeId)}
+          >
+            {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark as complete and open next"}
           </Button>
         )}
       </div>

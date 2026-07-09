@@ -11,13 +11,17 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+<<<<<<< HEAD
 import { CompassIcon, UserRoundIcon,MapIcon } from "lucide-react"
+=======
+import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon ,MapIcon} from "lucide-react"
+>>>>>>> temp-commit
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link, useLocation } from "react-router"
 
 export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const {data: session,isPending} = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const location = useLocation();
   return (
     <Sidebar {...props}>
@@ -44,15 +48,34 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
               <span>Profile</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+<<<<<<< HEAD
 
 
           <SidebarMenuItem>
+=======
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/ats"} render={<Link to="/ats" />}>
+              <FileTextIcon className="size-4" />
+              <span>ATS Scanner</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/score-matching"} render={<Link to="/score-matching" />}>
+              <TargetIcon className="size-4" />
+              <span>Skill Matching</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+                    <SidebarMenuItem>
+>>>>>>> temp-commit
             <SidebarMenuButton isActive={location.pathname === "/roadmap"} render={<Link to="/roadmap" />}>
               <MapIcon className="size-4" />
               <span>Roadmap</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+<<<<<<< HEAD
           
+=======
+>>>>>>> temp-commit
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

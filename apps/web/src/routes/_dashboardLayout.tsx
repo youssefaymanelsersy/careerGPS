@@ -10,9 +10,8 @@ export default function ProtectedLayout() {
   const { data: session, isPending } = authClient.useSession();
 
   useEffect(() => {
-    if (!isPending && !session) {
-      navigate("/login", { replace: true });
-    }
+    //temp
+    //if (!isPending && !session) { navigate("/login", { replace: true });}
   }, [session, isPending, navigate]);
 
   if (isPending) {

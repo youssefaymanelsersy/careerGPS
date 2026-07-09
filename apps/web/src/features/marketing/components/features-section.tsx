@@ -21,7 +21,7 @@ const features = [
   {
     icon: Brain,
     title: 'AI Mentor',
-    description: '24/7 guidance on portfolio reviews, mock interviews, and technical questions.',
+    description: '24/7 roadmap on portfolio reviews, mock interviews, and technical questions.',
   },
   {
     icon: Wrench,
@@ -39,22 +39,22 @@ function FeaturesSection() {
   return (
     <section id="features" className='py-12'>
       <h2 className="mb-16 text-center text-3xl font-bold tracking-tight">
-          Equipped for the journey
-        </h2>
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-          {features.map((feature) => {
-            const Icon = feature.icon
-            return (
-              <Surface
-                key={feature.title}
-              >
-                <Icon className="mb-4 size-8 text-primary" />
-                <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </Surface>
-            )
-          })}
-        </div>
+        Equipped for the journey
+      </h2>
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+        {features.map((feature) => {
+          const Icon = feature.icon
+          return (
+            <Surface
+              key={feature.title}
+            >
+              <Icon className="mb-4 size-8 text-primary" />
+              <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
+              <p className="text-muted-foreground">{feature.description}</p>
+            </Surface>
+          )
+        })}
+      </div>
     </section>
   )
 }
