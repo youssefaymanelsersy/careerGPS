@@ -14,6 +14,7 @@ const alertVariants = cva(
 				warning: "*:data-[slot=alert-title]:text-warning *:[svg]:text-warning",
 				destructive:
 					"*:data-[slot=alert-title]:text-destructive *:[svg]:text-destructive",
+				info: "*:data-[slot=alert-title]:text-blue-600 *:[svg]:text-blue-600",
 			},
 		},
 		defaultVariants: {
