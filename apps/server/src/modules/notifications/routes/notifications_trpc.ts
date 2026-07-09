@@ -12,6 +12,17 @@ export const notificationsRouter = router({
         });
     }),
 
+    getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
+        const unread = await db.query.notifications.findMany({
+            where: and(
+                eq(notifications.userId, ctx.session.user.id),
+                eq(notifications.status, "pending")
+            ),
+            columns: { id: true }
+        });
+        return { count: unread.length };
+    }),
+
     markRead: protectedProcedure
         .input(z.object({ id: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => {

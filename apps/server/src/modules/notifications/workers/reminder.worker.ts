@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { dispatchNotification } from "../services/notifications.service";
 
 // 5-minute sweep
-export const reminderCron = new Cron("*/5 * * * *", async () => {
+export async function runReminderSweep() {
     try {
         // Atomic claim
         const result = await db.execute(sql`
@@ -73,4 +73,6 @@ export const reminderCron = new Cron("*/5 * * * *", async () => {
     } catch (error) {
         console.error("Failed to run reminder cron sweep", error);
     }
-});
+}
+
+export const reminderCron = new Cron("*/5 * * * *", runReminderSweep);

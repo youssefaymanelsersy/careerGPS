@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { dispatchNotification } from "../services/notifications.service";
 
 // Every hour or appropriate interval
-export const missedSessionCron = new Cron("0 * * * *", async () => {
+export async function runMissedSessionSweep() {
     try {
         const overdueSessions = await db.execute(sql`
             SELECT ce.*
@@ -54,4 +54,6 @@ export const missedSessionCron = new Cron("0 * * * *", async () => {
     } catch (error) {
         console.error("Failed to run missed session cron", error);
     }
-});
+}
+
+export const missedSessionCron = new Cron("0 * * * *", runMissedSessionSweep);

@@ -11,6 +11,9 @@ import multer from "multer";
 import type { Request, Response, NextFunction } from "express";
 
 
+import "@/modules/notifications/workers/reminder.worker";
+import "@/modules/notifications/workers/missed_session.worker";
+
 const app = express();
 
 app.use(
