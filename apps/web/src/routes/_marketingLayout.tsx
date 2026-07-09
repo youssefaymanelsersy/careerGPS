@@ -11,7 +11,10 @@ function MarketingLayout() {
 
   useEffect(() => {
     if (!isPending && session) {
-      navigate('/profile', { replace: true })
+      navigate(
+        session.user.isOnboarded ? '/profile' : '/onboarding',
+        { replace: true }
+      )
     }
   }, [session, isPending, navigate])
 

@@ -28,6 +28,9 @@ export const authClient = createAuthClient({
         preferredStartTime: {
           type: "string",
         },
+        isOnboarded: {
+          type: "boolean",
+        },
       },
     }),
   ],

@@ -9,6 +9,7 @@ export const user = pgTable("user", {
     email: text("email").notNull().unique(),
     emailVerified: boolean("email_verified").default(false).notNull(),
     image: text("image"),
+    isOnboarded: boolean("is_onboarded").default(false).notNull(),
     roleId: uuid("role_id")
         .references(() => roles.id, { onDelete: "set null" }),
     availableDaysPerWeek: integer("available_days_per_week"),

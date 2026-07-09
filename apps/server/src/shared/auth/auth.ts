@@ -47,6 +47,10 @@ export const auth = betterAuth({
         type: "string",
         input: true,
       },
+      isOnboarded: {
+        type: "boolean",
+        input: true,
+      },
     }
   },
   plugins: [],
