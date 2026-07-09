@@ -13,10 +13,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "test": "bun test",
-    "seed:curriculum": "bun run src/modules/roadmap/db/curriculum-nodes.seed.ts",
-    "seed:skills": "bun run src/db/seed-skills.ts",
-    "seed:roles": "bun run src/db/seed-roles.ts",
-    "seed:role-skills": "bun run src/db/seed-role-skills.ts"
+    "seed:curriculum": "bun run src/modules/roadmap/db/curriculum-nodes.seed.ts"
   },
   "dependencies": {
     "@careergps/env": "workspace:*",
@@ -28,9 +25,9 @@
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
-    "multer": "^1.4.5-lts.1",
+    "zod": "catalog:",
     "pg": "^8.17.1",
-    "zod": "catalog:"
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "@careergps/config": "workspace:*",
@@ -44,5 +41,4 @@
     "typescript": "^5",
     "@types/multer": "^1.4.7"
   }
-  
 }

@@ -11,11 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-<<<<<<< HEAD
-import { CompassIcon, UserRoundIcon,MapIcon } from "lucide-react"
-=======
-import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon ,MapIcon} from "lucide-react"
->>>>>>> temp-commit
+import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link, useLocation } from "react-router"
@@ -39,7 +35,7 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-<SidebarContent>
+      <SidebarContent>
         <SidebarMenu>
 
           <SidebarMenuItem>
@@ -48,11 +44,6 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
               <span>Profile</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-<<<<<<< HEAD
-
-
-          <SidebarMenuItem>
-=======
           <SidebarMenuItem>
             <SidebarMenuButton isActive={location.pathname === "/ats"} render={<Link to="/ats" />}>
               <FileTextIcon className="size-4" />
@@ -65,17 +56,12 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
               <span>Skill Matching</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-                    <SidebarMenuItem>
->>>>>>> temp-commit
+          <SidebarMenuItem>
             <SidebarMenuButton isActive={location.pathname === "/roadmap"} render={<Link to="/roadmap" />}>
               <MapIcon className="size-4" />
               <span>Roadmap</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-<<<<<<< HEAD
-          
-=======
->>>>>>> temp-commit
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

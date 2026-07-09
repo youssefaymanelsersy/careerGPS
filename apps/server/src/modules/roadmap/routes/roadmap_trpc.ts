@@ -8,8 +8,7 @@ import { db } from "@/db";
 import { roadmaps, roadmapNodes, skillCurriculumNodes } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-type NodeStatus = "pending" | "inProgress" | "completed";
-type NodePriority = "high" | "medium";
+
 export const roadmapRouter = router({
     generate: protectedProcedure
         .input(
@@ -51,7 +50,7 @@ export const roadmapRouter = router({
     getActiveRoadmap: protectedProcedure
         .input(z.object({ roleId: z.string().uuid() }))
         .query(async ({ ctx, input }) => {
-            const roadmap =await db.query.roadmaps.findFirst({
+            const roadmap = await db.query.roadmaps.findFirst({
                 where: and(
                     eq(roadmaps.userId, ctx.session.user.id),
                     eq(roadmaps.roleId, input.roleId),
@@ -59,19 +58,19 @@ export const roadmapRouter = router({
                 ),
                 with: {
                     nodes: {
-                        columns:{
-                            id:true,
-                            orderIndex:true,
-                            status:true,
-                            completedAt:true,
-                            priority:true,
+                        columns: {
+                            id: true,
+                            orderIndex: true,
+                            status: true,
+                            completedAt: true,
+                            priority: true,
                         },
                         orderBy: asc(roadmapNodes.orderIndex),
                         with: {
                             curriculumNode: {
-                                columns:{
-                                    title:true,
-                                    skillId:true,
+                                columns: {
+                                    title: true,
+                                    skillId: true,
                                 },
                                 with: {
                                     skill: {
@@ -86,7 +85,7 @@ export const roadmapRouter = router({
                 }
             });
 
-            if(!roadmap){
+            if (!roadmap) {
                 throw new TRPCError({
                     code: "NOT_FOUND",
                     message: "Roadmap not found"
@@ -107,7 +106,7 @@ export const roadmapRouter = router({
                 })),
             };
         }),
-        
+
     getUserRoadmaps: protectedProcedure
         .query(async ({ ctx }) => {
             return db.query.roadmaps.findMany({
@@ -125,7 +124,7 @@ export const roadmapRouter = router({
                 }
             });
         }),
-        
+
     deleteUserRoadmap: protectedProcedure
         .input(z.object({ roadmapId: z.string().uuid() }))
         .mutation(async ({ ctx, input }) => {
@@ -148,16 +147,16 @@ export const roadmapRouter = router({
         }),
 
     getNodeInfo: protectedProcedure
-        .input(z.object({nodeId: z.string().uuid()}))
-        .query(async({input})=>{
+        .input(z.object({ nodeId: z.string().uuid() }))
+        .query(async ({ input }) => {
             const node = await db.query.roadmapNodes.findFirst({
-                columns:{
-                    curriculumNodeId:true
+                columns: {
+                    curriculumNodeId: true
                 },
-                where: eq(roadmapNodes.id , input.nodeId)
+                where: eq(roadmapNodes.id, input.nodeId)
             });
-            
-            if (!node){
+
+            if (!node) {
                 throw new TRPCError({
                     code: "NOT_FOUND",
                     message: "Node not found"
@@ -165,9 +164,9 @@ export const roadmapRouter = router({
             }
 
             return await db.query.skillCurriculumNodes.findFirst({
-                where: eq( skillCurriculumNodes.id, node.curriculumNodeId ),
-                with:{
-                    resources:true
+                where: eq(skillCurriculumNodes.id, node.curriculumNodeId),
+                with: {
+                    resources: true
                 }
             });
         }),
