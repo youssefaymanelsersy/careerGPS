@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { scoreTier, scoreBgClass } from "@/features/dashboard/utils";
 import type { ActiveRoadmap } from "./profile.types";
 import { Map, CheckCircle, Clock, Lock } from "lucide-react";
@@ -24,7 +25,7 @@ export function RoadmapProgressCard({ roadmap, isLoading }: RoadmapProgressCardP
 				<CardContent>
 					<div className="space-y-3">
 						{[1, 2, 3].map((i) => (
-							<div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+							<Skeleton key={i} className="h-12 rounded-lg" />
 						))}
 					</div>
 				</CardContent>

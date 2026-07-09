@@ -15,6 +15,7 @@ import { ProfileStats } from "./profile-stats";
 import { SkillsOverview } from "./skills-overview";
 import { LeaderboardSection } from "./leaderboard-section";
 import { RoadmapProgressCard } from "./roadmap-progress-card";
+import { ProfilePageSkeleton } from "./profile-page-skeleton";
 
 export function ProfilePage() {
 	const { data: session, isPending: isSessionPending } = authClient.useSession();
@@ -31,6 +32,12 @@ export function ProfilePage() {
 		return <Loader />;
 	}
 
+	const isLoading = isSkillsLoading || isRoleLoading || isReportLoading || isGlobalLoading || isRoleLeaderboardLoading || isRoadmapLoading;
+
+	if (isLoading) {
+		return <ProfilePageSkeleton />;
+	}
+
 	if (!session?.user) {
 		return <div>Not authenticated</div>;
 	}
@@ -38,8 +45,6 @@ export function ProfilePage() {
 	const finalScore = Number(latestReport?.report?.overallReadinessScore ?? 0);
 	const activityScore = Number(latestReport?.report?.generalGithubScore ?? 0);
 	const tierInfo = getTierInfo(finalScore, activityScore);
-
-	const isLoading = isSkillsLoading || isRoleLoading || isReportLoading || isGlobalLoading || isRoleLeaderboardLoading || isRoadmapLoading;
 
 	return (
 		<div className="space-y-6">

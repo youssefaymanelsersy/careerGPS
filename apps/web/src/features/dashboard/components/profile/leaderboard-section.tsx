@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TIER_COLORS, calculateTier, type GamificationTier, type GlobalLeaderboard, type RoleLeaderboard } from "./profile.types";
 import { Crown, Diamond, Globe, Medal, Star, Trophy, Users } from "lucide-react";
 
@@ -98,6 +99,25 @@ export function LeaderboardSection({
 	currentUserId,
 	isLoading,
 }: LeaderboardSectionProps) {
+	if (isLoading) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Trophy className="size-5" />
+						Leaderboard
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					<Skeleton className="h-8 w-40" />
+					{[1, 2, 3, 4, 5].map((i) => (
+						<Skeleton key={i} className="h-14 rounded-xl" />
+					))}
+				</CardContent>
+			</Card>
+		);
+	}
+
 	return (
 		<Card>
 			<CardHeader>
