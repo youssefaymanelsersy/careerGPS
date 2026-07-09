@@ -21,14 +21,5 @@ export const auth = betterAuth({
       httpOnly: true,
     },
   },
-  session: {
-    additionalFields: {
-      roleId: {
-        type: "string",
-        input: false,
-        required: false,
-      }
-    }
-  },
   plugins: [],
 });
