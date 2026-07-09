@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ActiveRoadmapNode } from "./roadmap.data";
 import { Loader2 } from "lucide-react"; 
+import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../utils/trpc";
 
 interface Props {
@@ -26,9 +27,11 @@ export function RoadmapDetails({ mapNode, isMutating, onMarkComplete, onOpenNext
   const isCompleted = mapNode.status === "completed";
   
   // Fetch detailed info for the active node
-  const { data: nodeDetails, isLoading } = trpc.roadmap.getNodeInfo.useQuery(
-    { nodeId: mapNode.nodeId },
-    { enabled: !!mapNode?.nodeId }
+  const { data: nodeDetails, isLoading } = useQuery(
+    trpc.roadmap.getNodeInfo.queryOptions(
+      { nodeId: mapNode.nodeId },
+      { enabled: !!mapNode?.nodeId }
+    )
   );
 
   const resources = nodeDetails?.resources || [];
