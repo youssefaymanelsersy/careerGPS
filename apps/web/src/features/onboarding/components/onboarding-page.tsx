@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/stepper";
 import {
   useAddManualSkills,
+  useGenerateRoadmap,
   useSetAvailability,
   useSetUserRole,
 } from "@/features/onboarding/onboarding.service";
@@ -98,6 +99,7 @@ export function OnboardingPage() {
   const addManualSkillsMutation = useAddManualSkills() as any;
   const setAvailabilityMutation = useSetAvailability() as any;
   const setUserRoleMutation = useSetUserRole() as any;
+  const generateRoadmapMutation = useGenerateRoadmap() as any;
   const [submitting, setSubmitting] = useState(false);
 
   const handleFinish = useCallback(async () => {
@@ -129,6 +131,8 @@ export function OnboardingPage() {
 
       await setUserRoleMutation.mutateAsync({ roleId });
 
+      await generateRoadmapMutation.mutateAsync({ roleId });
+
       await authClient.updateUser({ isOnboarded: true });
 
       await authClient.$store.atoms.session.get().refetch();
@@ -139,7 +143,7 @@ export function OnboardingPage() {
       toast.error("Failed to complete onboarding");
       setSubmitting(false);
     }
-  }, [addManualSkillsMutation, setAvailabilityMutation, setUserRoleMutation, navigate]);
+  }, [addManualSkillsMutation, generateRoadmapMutation, setAvailabilityMutation, setUserRoleMutation, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-8">

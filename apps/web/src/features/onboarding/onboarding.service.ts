@@ -76,6 +76,16 @@ export function useGetAllRoles(includeScore: boolean) {
   } as any);
 }
 
+export function useGenerateRoadmap() {
+  return useMutation(
+    trpc.roadmap.generate.mutationOptions({
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to generate roadmap");
+      },
+    }) as any,
+  );
+}
+
 export function useSetUserRole() {
   return useMutation(
     trpc.roles.setUserRole.mutationOptions({
