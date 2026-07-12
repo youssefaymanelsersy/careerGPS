@@ -65,20 +65,30 @@ export function RoadmapPage() {
     if (!roadmapData?.nodes) return [];
 
     const sorted = [...roadmapData.nodes].sort((a, b) => a.orderIndex - b.orderIndex);
-    const unlockedForSkill = new Set<string>();
+
+    // Strict linear progression: only the FIRST incomplete node in the whole
+    // roadmap is unlocked ("inProgress"). Everything after it stays "pending"
+    // (locked) until that one is marked complete. Previously each skill got
+    // its own unlocked node in parallel, which is why multiple "YOU ARE HERE"
+    // nodes could show up at once.
+    let hasUnlockedNext = false;
 
     return sorted.map((node) => {
       let computedStatus: ActiveRoadmapNode["status"] = node.status;
 
-      if (node.status === "pending" && !unlockedForSkill.has(node.skillName)) {
+      if (node.status === "completed") {
+        computedStatus = "completed";
+      } else if (!hasUnlockedNext) {
         computedStatus = "inProgress";
-        unlockedForSkill.add(node.skillName);
+        hasUnlockedNext = true;
+      } else {
+        computedStatus = "pending";
       }
 
       return {
         ...node,
         status: computedStatus,
-        priority: "medium", 
+        priority: "medium",
       };
     });
   }, [roadmapData?.nodes]);
@@ -152,12 +162,28 @@ export function RoadmapPage() {
 
   const selectedStep = mappedNodes.find((n) => n.nodeId === selectedId) || mappedNodes[0];
 
+  const completedCount = mappedNodes.filter((n) => n.status === "completed").length;
+  const totalCount = mappedNodes.length;
+  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white font-sans">
-      <header className="flex items-center justify-between px-7 pt-5 pb-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-        <div>
-          <h1 className="text-[22px] font-bold m-0">Career Path</h1>
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-1">Your Learning Journey</p>
+      <header className="flex flex-col gap-3 px-7 pt-5 pb-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[22px] font-bold m-0">Career Path</h1>
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-1">Your Learning Journey</p>
+          </div>
+          <div className="text-right">
+            <span className="text-sm font-bold">{completedCount}/{totalCount}</span>
+            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 m-0">modules complete</p>
+          </div>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-zinc-900 dark:bg-white transition-all duration-500 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </header>
 

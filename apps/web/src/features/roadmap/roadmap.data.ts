@@ -26,5 +26,5 @@ export interface ActiveRoadmapNode extends ApiRoadmapNode {
    // Ready for any future frontend-only properties
 }
 
-export const NODE_WIDTH = 200;
-export const NODE_HEIGHT = 52;
+export const NODE_WIDTH = 230;
+export const NODE_HEIGHT = 60;
