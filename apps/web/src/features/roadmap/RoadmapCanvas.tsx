@@ -59,22 +59,58 @@ function NodeCard({ node, isSelected, skillColor, onClick }: { node: ActiveRoadm
   // of time) but muted; unlocked/completed nodes get the full color + glow.
   const borderColor = skillColor;
   const borderOpacity = isPending ? 0.35 : 1;
-  const glow = isPending ? "none" : `drop-shadow(0 0 ${isActive ? 9 : 5}px ${skillColor}99)`;
+  const glow =  `drop-shadow(0 0 ${isActive ? 10 : 7}px ${skillColor}99)`;
 
   return (
     <g style={{ cursor: c.cursor, filter: glow }} onClick={!isPending ? onClick : undefined}>
       {/* Pulsing halo draws the eye to the single unlocked node */}
       {isActive && (
-        <rect x={-7} y={-7} width={W + 14} height={H + 14} rx={13} fill="none" stroke={borderColor} strokeWidth={2}>
-          <animate attributeName="opacity" values="0.15;0.55;0.15" dur="2.4s" repeatCount="indefinite" />
-          <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.4s" repeatCount="indefinite" />
-        </rect>
+      <>
+        <defs>
+          <path
+            id="activePath"
+            d={`
+              M ${-7 + 13} ${-7}
+              H ${W - 6}
+              A 13 13 0 0 1 ${W + 7} 6
+              V ${H - 6}
+              A 13 13 0 0 1 ${W - 6} ${H + 7}
+              H 6
+              A 13 13 0 0 1 -7 ${H - 6}
+              V 6
+              A 13 13 0 0 1 6 -7
+            `}
+            fill="none"
+          />
+        </defs>
+
+        <circle r={4} fill={borderColor}>
+          <animateMotion dur="10s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#activePath" />
+          </animateMotion>
+        </circle>
+        <rect
+              x={-5}
+              y={-5}
+              width={W + 10}
+              height={H + 10}
+              rx={12}
+              fill="none"
+              stroke={borderColor}
+              strokeWidth={2}
+              strokeDasharray="10 8"
+          >
+              <animate
+                  attributeName="stroke-dashoffset"
+                  from="0"
+                  to="-36"
+                  dur="1.5s"
+                  repeatCount="indefinite"
+              />
+          </rect>
+      </>
       )}
-      {isSelected && !isPending && (
-        <rect x={-5} y={-5} width={W + 10} height={H + 10} rx={10} fill="none" stroke={borderColor} strokeWidth={1.5} opacity={0.35} />
-      )}
-      <rect x={0} y={0} width={W} height={H} rx={8} fill={c.bg} stroke={borderColor} strokeOpacity={borderOpacity} strokeWidth={isSelected ? 2 : 1.25} opacity={isPending ? 0.7 : 1} />
-      <rect x={0} y={0} width={3} height={H} rx={2} fill={c.accentBar} opacity={isPending ? 0.7 : 1} />
+      <rect x={0} y={0} width={W} height={H} rx={8} fill={c.bg} stroke={borderColor} strokeOpacity={borderOpacity} strokeWidth={isActive ? 2 : 1.25} opacity={isPending ? 0.7 : 1} />
 
       {/* foreignObject truncates long titles with an ellipsis instead of
           letting SVG <text> spill outside the card boundary */}
@@ -96,7 +132,7 @@ function NodeCard({ node, isSelected, skillColor, onClick }: { node: ActiveRoadm
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ fontSize: 13, color: c.accentBar, flexShrink: 0, lineHeight: 1 }}>{c.icon}</span>
+            <span style={{ fontSize: 13, color: borderColor, flexShrink: 0, lineHeight: 1 }}>{c.icon}</span>
             <span
               style={{
                 fontSize: 12.5,
@@ -111,7 +147,7 @@ function NodeCard({ node, isSelected, skillColor, onClick }: { node: ActiveRoadm
               {node.curriculumTitle}
             </span>
           </div>
-          <span style={{ fontSize: 9, fontWeight: 700, color: c.label, letterSpacing: 1, marginLeft: 20 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: borderColor, letterSpacing: 1, marginLeft: 20 }}>
             {c.statusText}
           </span>
         </div>
