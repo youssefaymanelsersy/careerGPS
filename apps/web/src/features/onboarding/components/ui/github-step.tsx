@@ -128,8 +128,8 @@ export function GithubStep({ onSuccess }: GithubStepProps) {
           </Alert>
         </div>
       </CardContent>
-      <CardFooter className="justify-between">
-        <StepperPrev render={<Button variant="secondary" />}>Previous Step</StepperPrev>
+      <CardFooter className="justify-end">
+        {/* <StepperPrev render={<Button variant="secondary" />}>Previous Step</StepperPrev> */}
         <StepperNext disabled={syncMutation.isPending} render={<Button />}>Skip</StepperNext>
       </CardFooter>
     </Card>
