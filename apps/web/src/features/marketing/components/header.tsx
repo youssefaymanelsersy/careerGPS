@@ -25,11 +25,11 @@ function Header() {
               Features
             </NavigationMenuLink>
           </NavigationMenuItem>
-          <NavigationMenuItem>
+          {/* <NavigationMenuItem>
             <NavigationMenuLink render={<Link to="/#pricing" />}>
               Pricing
             </NavigationMenuLink>
-          </NavigationMenuItem>
+          </NavigationMenuItem> */}
           <NavigationMenuItem>
             <NavigationMenuLink render={<Link to="/#faq" />}>
               Faq

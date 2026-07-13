@@ -10,7 +10,7 @@ export default function OnboardingRoute() {
 
   useEffect(() => {
     if (!isPending && session?.user.isOnboarded) {
-      navigate("/profile", { replace: true });
+      navigate("/roadmap", { replace: true });
     }
   }, [session, isPending, navigate]);
 

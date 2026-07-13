@@ -138,7 +138,7 @@ export function OnboardingPage() {
       await authClient.$store.atoms.session.get().refetch();
 
       toast.success("Onboarding complete!");
-      navigate("/profile", { replace: true });
+      navigate("/roadmap", { replace: true });
     } catch (error) {
       toast.error("Failed to complete onboarding");
       setSubmitting(false);
