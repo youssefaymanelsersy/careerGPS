@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ActiveRoadmapNode } from "./roadmap.data";
 import { NODE_HEIGHT, NODE_WIDTH } from "./roadmap.data";
-
 interface Props {
   nodes: ActiveRoadmapNode[];
   selectedId: string;
