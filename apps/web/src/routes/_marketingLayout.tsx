@@ -12,7 +12,7 @@ function MarketingLayout() {
   useEffect(() => {
     if (!isPending && session) {
       navigate(
-        session.user.isOnboarded ? '/profile' : '/onboarding',
+        session.user.isOnboarded ? '/roadmap' : '/onboarding',
         { replace: true }
       )
     }
