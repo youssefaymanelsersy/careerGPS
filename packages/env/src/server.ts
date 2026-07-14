@@ -22,6 +22,7 @@ export const env = createEnv({
     AI_INTERVIEW_SERVICE_URL: z.string().url(),
     HUGGING_FACE_CV_ATS_API_KEY: z.string().min(1),
     HUGGING_FACE_SKILL_MATCHING_API_KEY: z.string().min(1),
+    AI_MICROSERVICE_URL: z.string().url(),
     
     VAPID_PUBLIC_KEY: z.string().min(1),
     VAPID_PRIVATE_KEY: z.string().min(1),

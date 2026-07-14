@@ -169,12 +169,12 @@ export const cvRouter = router({
             // Sync new CV skills to database BEFORE evaluating
             if (cvData.parsedData?.skills?.technical) {
                 for (const skill of cvData.parsedData.skills.technical) {
-                    let strength = 75;
+                    let strength = 50;
                     if (skill.level) {
                         const l = skill.level.toLowerCase();
-                        if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 95;
-                        else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 80;
-                        else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 50;
+                        if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 75;
+                        else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 50;
+                        else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 25;
                     }
                     
                     await addManualSkill({

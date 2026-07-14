@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { cv } from "@/db/schema";
 import { randomUUID, type UUID } from "crypto";
 import { parseCVData } from "../cv-parser";
+import { env } from "@careergps/env/server";
 
 const router: Router = express.Router();
 
@@ -100,12 +101,12 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
         cvId: id,
         status,
         "skills": technical.map((skill) => {
-          let strength = 75; // Default solid strength if they list it on their CV
+          let strength = 50; // Default solid strength if they list it on their CV
           if (skill.level) {
             const l = skill.level.toLowerCase();
-            if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 95;
-            else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 80;
-            else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 50;
+            if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 75;
+            else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 50;
+            else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 25;
           }
           return {
             "skillName": skill.name,
@@ -150,6 +151,52 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
 
 });
 
+router.post("/optimize", requireAuth, upload.single("cv_file"), async (req, res) => {
+  try {
+    const file = req.file;
+    const cvData = req.body.cv_data;
+    const jobDescription = req.body.job_description;
+    const designPreference = req.body.design_preference;
 
+    const formData = new FormData();
+    if (file) {
+      formData.append("cv_file", new Blob([file.buffer], { type: file.mimetype }), file.originalname);
+    } else if (cvData) {
+      formData.append("cv_data", cvData);
+    }
+
+    if (jobDescription) {
+      formData.append("job_description", jobDescription);
+    }
+    if (designPreference) {
+      formData.append("design_preference", designPreference);
+    }
+
+    const aiUrl = env.AI_MICROSERVICE_URL;
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout
+
+    console.log(`Proxying optimize request to ${aiUrl}/optimize`);
+    const aiRes = await fetch(`${aiUrl}/optimize`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeout);
+
+    if (!aiRes.ok) {
+       const errorData = await aiRes.json().catch(() => ({}));
+       return res.status(aiRes.status).json(errorData);
+    }
+
+    const data = await aiRes.json();
+    return res.status(200).json(data);
+  } catch (err: any) {
+    console.error("Optimize Proxy Error:", err);
+    return res.status(500).json({ detail: "AI Service is unavailable or timed out." });
+  }
+});
 
 export default router;

@@ -359,6 +359,48 @@ export const skillsRouter = router({
                 }));
             }
         ),
+
+    deleteUserSkill: protectedProcedure
+        .input(
+            z.object({
+                skillId: z.string().uuid(),
+            })
+        )
+        .mutation(async ({ input, ctx }) => {
+            const userId = ctx.session.user.id;
+            await db.delete(userSkills).where(
+                and(
+                    eq(userSkills.userId, userId),
+                    eq(userSkills.skillId, input.skillId)
+                )
+            );
+            return { success: true };
+        }),
+
+    updateUserSkills: protectedProcedure
+        .input(
+            z.array(
+                z.object({
+                    skillId: z.string().uuid(),
+                    strengthScore: z.number(),
+                })
+            )
+        )
+        .mutation(async ({ input, ctx }) => {
+            const userId = ctx.session.user.id;
+            const updates = input.map(skill => 
+                db.update(userSkills)
+                  .set({ strengthScore: clampStrength(skill.strengthScore).toString() })
+                  .where(
+                      and(
+                          eq(userSkills.userId, userId),
+                          eq(userSkills.skillId, skill.skillId)
+                      )
+                  )
+            );
+            await Promise.all(updates);
+            return { success: true };
+        }),
 });
 
 function clampStrength(value: number) {
