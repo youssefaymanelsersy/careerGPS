@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, asc, lt, ne } from "drizzle-orm";
 import { evaluateUserForRole } from "@/modules/roles/service";
 import { dispatchNotification } from "@/modules/notifications/services/notifications.service";
+import { settleStreak } from "@/modules/streaks/services/streak.service";
 
 import { db } from "@/db";
 import {
@@ -312,6 +313,9 @@ export async function completeRoadmapNode({
             payload: { skillId: curriculumNode.skillId }
         });
     }
+
+    const todayStr = new Date().toISOString().split("T")[0]!;
+    await settleStreak(userId, todayStr, true);
 
     return {
         nodeId: node.nodeId,

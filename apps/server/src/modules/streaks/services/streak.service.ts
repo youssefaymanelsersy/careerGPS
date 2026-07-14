@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { userStreaks } from "../db/schema";
 import { calendarEvents } from "../../calendar/db/schema";
-import { eq, and, gt, lte, asc, sql } from "drizzle-orm";
+import { eq, and, gt, lt, asc, sql } from "drizzle-orm";
 import { dispatchNotification } from "../../notifications/services/notifications.service";
 
 export async function settleStreak(userId: string, upToDateStr: string, increment: boolean = false) {
@@ -36,7 +36,7 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
         let freezeMonthAnchor = freezeMonthAnchorStr ? new Date(freezeMonthAnchorStr) : null;
 
         // Refill freezes on new month and update anchor
-        if (!freezeMonthAnchor || upToDate.getMonth() !== freezeMonthAnchor.getMonth() || upToDate.getFullYear() !== freezeMonthAnchor.getFullYear()) {
+        if (!freezeMonthAnchor || upToDate.getUTCMonth() !== freezeMonthAnchor.getUTCMonth() || upToDate.getUTCFullYear() !== freezeMonthAnchor.getUTCFullYear()) {
             freezesAvailable = 3;
             freezesUsedThisMonth = 0;
             freezeMonthAnchor = upToDate; // Fix: Update anchor to current month
@@ -53,7 +53,7 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
                         eq(calendarEvents.userId, userId),
                         eq(calendarEvents.status, "scheduled"),
                         gt(calendarEvents.date, lastResolvedDateIso),
-                        lte(calendarEvents.date, upToDateIso) // Only check up to today
+                        lt(calendarEvents.date, upToDateIso) // Only check strictly in the past
                     )
                 )
                 .orderBy(asc(calendarEvents.date));
@@ -83,7 +83,11 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
 
         if (increment) {
             // Only increment if we haven't already resolved for this date
-            if (!lastResolvedDateStr || upToDateStr !== lastResolvedDateStr) {
+            const lastResolvedNormalized = lastResolvedDate 
+                ? lastResolvedDate.toISOString().split("T")[0] 
+                : null;
+                
+            if (!lastResolvedNormalized || upToDateStr !== lastResolvedNormalized) {
                 currentStreak += 1;
                 longestStreak = Math.max(longestStreak, currentStreak);
                 

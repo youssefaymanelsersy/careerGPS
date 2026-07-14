@@ -19,68 +19,67 @@ export function RoadmapPage() {
   const queryClient = useQueryClient();
 
   // 1. Fetch Active Roadmap (Extract mapError to check for 404s)
-  const { data: roadmapData, isLoading: isMapLoading, error: mapError } = useQuery<{ nodes: ApiRoadmapNode[] }, Error>(
-    trpc.roadmap.getActiveRoadmap.queryOptions(
-      { roleId: roleId! },
-      { enabled: !!roleId, retry: false } // Prevent retrying on 404s
-    ) as any
-  );
+  const { data: roadmapData, isLoading: isMapLoading, error: mapError } = useQuery({
+    ...trpc.roadmap.getActiveRoadmap.queryOptions({ roleId: roleId! }),
+    enabled: !!roleId,
+    retry: false,
+  });
 
   // 2. Generation Mutation (Handles missing roadmaps + curriculum warnings)
-  const generateMutation = useMutation<any, Error, { roleId: string }>(
-    trpc.roadmap.generate.mutationOptions({
-      onSuccess: async (data: { skillsMissingCurriculum?: string[] }) => {
-        if (data?.skillsMissingCurriculum && data.skillsMissingCurriculum.length > 0) {
-          toast.warning(`The following skills don't have learning content yet: ${data.skillsMissingCurriculum.join(', ')}`, { position: "top-center" });
-        }
-        if (roleId) {
-          await queryClient.invalidateQueries(
-            trpc.roadmap.getActiveRoadmap.queryFilter({ roleId })
-          );
-        }
-      },
-      onError: (error: Error) => {
-        toast.error(error?.message || "Failed to generate roadmap.", { position: "top-center" });
-      },
-    }) as any
-  );
+  const generateMutation = useMutation({
+    ...trpc.roadmap.generate.mutationOptions(),
+    onSuccess: async (data: any) => {
+      console.log("[RoadmapPage] generate onSuccess:", data);
+      
+      // Backend returns { message } when there are no skill gaps
+      if (data?.message) {
+        toast.info(data.message, { position: "top-center" });
+        return;
+      }
+      
+      if (data?.skillsMissingCurriculum && data.skillsMissingCurriculum.length > 0) {
+        toast.warning(`The following skills don't have learning content yet: ${data.skillsMissingCurriculum.join(', ')}`, { position: "top-center" });
+      }
+      // Reload to fetch the newly generated roadmap
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      console.error("[RoadmapPage] generate onError:", error);
+      toast.error(error?.message || "Failed to generate roadmap.", { position: "top-center" });
+    },
+  });
 
   // 3. Complete Node Mutation (Handles skill progression feedback)
-  const completeNodeMutation = useMutation<any, Error, { nodeId: string }>(
-    trpc.roadmap.completeNode.mutationOptions({
-      onSuccess: async () => {
-        if (roleId) {
-          await queryClient.invalidateQueries(
-            trpc.roadmap.getActiveRoadmap.queryFilter({ roleId })
-          );
-        }
-      },
-      onError: (error: Error) => {
-        toast.error(error?.message || "Failed to save progress. Please try again.", { position: "top-center" });
-      },
-    }) as any
-  );
+  const completeNodeMutation = useMutation({
+    ...trpc.roadmap.completeNode.mutationOptions(),
+    onSuccess: async () => {
+      if (roleId) {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.roadmap.getActiveRoadmap.queryKey({ roleId }),
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: trpc.streaks.get.queryKey() });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to save progress. Please try again.", { position: "top-center" });
+    },
+  });
 
   const mappedNodes = useMemo<ActiveRoadmapNode[]>(() => {
     if (!roadmapData?.nodes) return [];
 
     const sorted = [...roadmapData.nodes].sort((a, b) => a.orderIndex - b.orderIndex);
 
-    // Strict linear progression: only the FIRST incomplete node in the whole
-    // roadmap is unlocked ("inProgress"). Everything after it stays "pending"
-    // (locked) until that one is marked complete. Previously each skill got
-    // its own unlocked node in parallel, which is why multiple "YOU ARE HERE"
-    // nodes could show up at once.
-    let hasUnlockedNext = false;
+    const unlockedForSkill = new Set<string>();
 
     return sorted.map((node) => {
-      let computedStatus: ActiveRoadmapNode["status"] = node.status;
+      let computedStatus: ActiveRoadmapNode["status"] = node.status as any;
 
       if (node.status === "completed") {
         computedStatus = "completed";
-      } else if (!hasUnlockedNext) {
+      } else if (!unlockedForSkill.has(node.skillName)) {
         computedStatus = "inProgress";
-        hasUnlockedNext = true;
+        unlockedForSkill.add(node.skillName);
       } else {
         computedStatus = "pending";
       }
@@ -100,6 +99,8 @@ export function RoadmapPage() {
     }
   }, [mappedNodes, selectedId]);
 
+  const skillColorMap = useMemo(() => buildSkillColorMap(mappedNodes), [mappedNodes]);
+
   async function handleMarkComplete(nodeId: string) {
     if (!mappedNodes.length) return;
 
@@ -112,12 +113,12 @@ export function RoadmapPage() {
     try {
       const result = await completeNodeMutation.mutateAsync({ nodeId });
       
-      if (result?.alreadyCompleted) {
+      if (result && "alreadyCompleted" in result && result.alreadyCompleted) {
          return; 
       }
 
       // Check for skill progression data from the backend contract
-      if (result?.newStrength) {
+      if (result && "newStrength" in result && result.newStrength) {
         toast.success(`Awesome! Your strength in ${completedNode?.skillName} increased to ${result.newStrength}.${result.skillFullyCompleted ? ' You have fully mastered this skill!' : ''}`, { position: "top-center" });
       }
 
@@ -149,7 +150,10 @@ export function RoadmapPage() {
         <h2 className="text-2xl font-bold mb-3 text-zinc-900 dark:text-white">Ready to start?</h2>
         <p className="text-zinc-500 mb-6 max-w-md">We couldn't find an active learning path for your role. Generate a personalized roadmap based on your current skill gaps.</p>
         <button 
-          onClick={() => generateMutation.mutate({ roleId })}
+          onClick={() => {
+            console.log("[RoadmapPage] Generate clicked, roleId:", roleId);
+            if (roleId) generateMutation.mutate({ roleId });
+          }}
           disabled={generateMutation.isPending}
           className="px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded-md flex items-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
@@ -161,7 +165,6 @@ export function RoadmapPage() {
   }
 
   const selectedStep = mappedNodes.find((n) => n.nodeId === selectedId) || mappedNodes[0];
-  const skillColorMap = useMemo(() => buildSkillColorMap(mappedNodes), [mappedNodes]);
 
   const completedCount = mappedNodes.filter((n) => n.status === "completed").length;
   const totalCount = mappedNodes.length;
