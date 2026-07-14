@@ -239,7 +239,9 @@ export function InterviewSessionPage() {
               <div className="flex flex-col items-center gap-1">
                 <span className="text-sm text-muted-foreground">Skill Level</span>
                 <span className="text-4xl font-bold tracking-tight capitalize">{review.skill_level}</span>
-                <span className="text-md font-normal leading-snug mt-2 max-w-xxl text-left">
+                <span className="text-md font-normal leading-snug mt-2 max-w-xxl
+                
+                 text-left">
                   {review.summary}
                 </span>
               </div>
