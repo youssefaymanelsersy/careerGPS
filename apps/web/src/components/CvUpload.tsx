@@ -1,9 +1,11 @@
 import { useDropzone } from "react-dropzone";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router"; 
 import Stepper from "../components/Stepper";
 import { trpc } from "../utils/trpc"; 
+import { useMutation } from "@tanstack/react-query";
 import type { FileRejection } from "react-dropzone";
+
 
 interface Skill {
   name: string;
@@ -23,7 +25,7 @@ export default function CVUpload({ onParsed }: CVUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "parsing" | "done">("idle");
   const [error, setError] = useState<string>("");
-  const syncGithub = trpc.github.syncProjects.useMutation();
+  const syncGithub = useMutation(trpc.github.syncProjects.mutationOptions());
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {

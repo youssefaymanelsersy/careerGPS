@@ -7,7 +7,7 @@ import {
   Layers,
   type LucideIcon
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import Stepper from '../components/Stepper';
 import { trpc } from "../utils/trpc";
 

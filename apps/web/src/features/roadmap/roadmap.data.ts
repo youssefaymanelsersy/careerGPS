@@ -18,7 +18,7 @@ export interface ApiRoadmapNode {
   priority: NodePriority;
   curriculumTitle: string;
   skillName: string;
-  skillId: string; // Add this to TRPC backend to group inProgress nodes correctly
+  skillId?: string; // Add this to TRPC backend to group inProgress nodes correctly
 }
 
 // Frontend wrapper (kept simple since ApiRoadmapNode now handles the core structure)

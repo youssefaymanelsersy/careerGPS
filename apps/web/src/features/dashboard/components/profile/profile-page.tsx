@@ -1,4 +1,6 @@
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
+import { useQuery } from "@tanstack/react-query";
 import Loader from "@/components/composites/loader";
 import {
 	useUserSkills,
@@ -14,8 +16,10 @@ import { TierCard } from "./tier-card";
 import { ProfileStats } from "./profile-stats";
 import { SkillsOverview } from "./skills-overview";
 import { LeaderboardSection } from "./leaderboard-section";
+import { RoleSelectorCard } from "./role-selector-card";
 import { RoadmapProgressCard } from "./roadmap-progress-card";
 import { ProfilePageSkeleton } from "./profile-page-skeleton";
+import { DataSyncCard } from "./data-sync-card";
 
 export function ProfilePage() {
 	const { data: session, isPending: isSessionPending } = authClient.useSession();
@@ -27,12 +31,14 @@ export function ProfilePage() {
 	const { data: globalLeaderboard, isLoading: isGlobalLoading } = useGlobalLeaderboard();
 	const { data: roleLeaderboard, isLoading: isRoleLeaderboardLoading } = useRoleLeaderboard(roleId);
 	const { data: activeRoadmap, isLoading: isRoadmapLoading } = useActiveRoadmap(roleId);
+	const { data: githubStats, isLoading: isGithubStatsLoading } = useQuery(trpc.github.getStats.queryOptions());
+	const { data: projects, isLoading: isProjectsLoading } = useQuery(trpc.github.getProjects.queryOptions());
 
 	if (isSessionPending) {
 		return <Loader />;
 	}
 
-	const isLoading = isSkillsLoading || isRoleLoading || isReportLoading || isGlobalLoading || isRoleLeaderboardLoading || isRoadmapLoading;
+	const isLoading = isSkillsLoading || isRoleLoading || isReportLoading || isGlobalLoading || isRoleLeaderboardLoading || isRoadmapLoading || isGithubStatsLoading || isProjectsLoading;
 
 	if (isLoading) {
 		return <ProfilePageSkeleton />;
@@ -41,9 +47,9 @@ export function ProfilePage() {
 	if (!session?.user) {
 		return <div>Not authenticated</div>;
 	}
-
+	
 	const finalScore = Number(latestReport?.report?.overallReadinessScore ?? 0);
-	const activityScore = Number(latestReport?.report?.generalGithubScore ?? 0);
+	const activityScore = Number(githubStats?.activityScore ?? 0);
 	const tierInfo = getTierInfo(finalScore, activityScore);
 
 	return (
@@ -64,14 +70,20 @@ export function ProfilePage() {
 						readinessScore={finalScore}
 						activityScore={activityScore}
 						skillsCount={skills?.length ?? 0}
-						projectsCount={0}
+						projectsCount={projects?.length ?? 0}
 					/>
 				</div>
 			</div>
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<SkillsOverview skills={skills ?? []} />
-				<RoadmapProgressCard roadmap={activeRoadmap} isLoading={isRoadmapLoading} />
+				<div className="space-y-6">
+					<SkillsOverview skills={skills ?? []} />
+					<RoleSelectorCard currentRoleId={roleId} />
+				</div>
+				<div className="space-y-6">
+					<RoadmapProgressCard roadmap={activeRoadmap} isLoading={isRoadmapLoading} />
+					<DataSyncCard />
+				</div>
 			</div>
 
 			<LeaderboardSection

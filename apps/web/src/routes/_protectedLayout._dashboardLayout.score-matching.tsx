@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { AlertCircleIcon, TargetIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,12 @@ import { ScoreMatchingResults } from "@/features/dashboard/components/score-matc
 
 export default function DashboardScoreMatching() {
   const navigate = useNavigate();
-  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const { scoreMatch, data, isPending, isSuccess, reset } = useScoreMatch();
   const { data: quota, isLoading: isQuotaLoading } = useRemainingAiQuota("skill_match") as any;
 
   const handleReset = () => {
-    setFile(null);
+    setFileName(null);
     reset();
   };
 
@@ -66,8 +66,8 @@ export default function DashboardScoreMatching() {
     );
   }
 
-  if (isPending && file) {
-    return <ScoreMatchingLoading fileName={file.name} />;
+  if (isPending && fileName) {
+    return <ScoreMatchingLoading fileName={fileName} />;
   }
 
   return (
@@ -87,7 +87,8 @@ export default function DashboardScoreMatching() {
       )}
       <ScoreMatchingUpload
         onSubmit={(input: ScoreMatchInput) => {
-          setFile(input.file);
+          if (input.file) setFileName(input.file.name);
+          else setFileName("Existing CV");
           scoreMatch(input);
         }}
         disabled={isPending}

@@ -1,8 +1,10 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import Stepper from "../components/Stepper";
 import { trpc } from "../utils/trpc";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { type SkillLevel, SKILL_LEVELS, levelToStrength, strengthToLevel } from "@/features/onboarding/onboarding.types";
 
 interface SkillData {
   skillId: string;
@@ -12,14 +14,14 @@ interface SkillData {
 
 interface LocalModifiers {
   [key: string]: {
-    level: "Beginner" | "Intermediate" | "Expert";
+    level: SkillLevel;
   };
 }
 
 interface SkillDisplay {
   id: string;
   name: string;
-  level: "Beginner" | "Intermediate" | "Expert";
+  level: SkillLevel;
   type: "DETECTED" | "ADDED";
   icon?: React.ReactNode;
 }
@@ -32,8 +34,8 @@ interface SearchResult {
 export default function SkillsReview() {
   const navigate = useNavigate();
 
-  const { data: skillsData = [] } = trpc.skills.getUserSkills.useQuery<SkillData[]>();
-  const utils = trpc.useUtils();
+  const { data: skillsData = [] } = useQuery(trpc.skills.getUserSkills.queryOptions());
+  const queryClient = useQueryClient();
 
   const [localSkillsModifiers, setLocalSkillsModifiers] = useState<LocalModifiers>({});
   const [deletedSkillIds, setDeletedSkillIds] = useState<Set<string>>(new Set());
@@ -43,13 +45,9 @@ export default function SkillsReview() {
       .filter((skill) => !deletedSkillIds.has(skill.skillId))
       .map((skill) => {
         const localMod = localSkillsModifiers[skill.skillId];
-const calculatedLevel: "Beginner" | "Intermediate" | "Expert" =
+const calculatedLevel: SkillLevel =
   localMod?.level ??
-  (skill.strengthScore >= 90
-    ? "Expert"
-    : skill.strengthScore >= 60
-    ? "Intermediate"
-    : "Beginner");
+  strengthToLevel(skill.strengthScore);
 
 return {
   id: skill.skillId,
@@ -65,25 +63,25 @@ return {
   const [newSkillName, setNewSkillName] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   
-  const { data: searchResults = [] } = trpc.skills.searchSkill.useQuery<SearchResult[]>(
-    { skillWords: search },
-    { enabled: search.length >= 2 }
-  );
+  const { data: searchResults = [] } = useQuery({
+    ...trpc.skills.searchSkill.queryOptions({ skillWords: search }),
+    enabled: search.length >= 2
+  });
 
   const [, setNewSkillType] = useState<string>("DETECTED");
-  const [newSkillLevel, setNewSkillLevel] = useState<"Beginner" | "Intermediate" | "Expert">("Intermediate");
+  const [newSkillLevel, setNewSkillLevel] = useState<SkillLevel>("intermediate");
   const [errorMessage, setErrorMessage] = useState<string>(""); // لتوضيح أخطاء التكرار للمستخدم
 
-  const addManualSkill = trpc.skills.addManualSkill.useMutation();
-  const deleteSkill = trpc.skills.deleteSkill.useMutation();
-  const updateSkills = trpc.skills.updateSkills.useMutation();
-  const updateUserSkill = trpc.skills.updateUserSkill.useMutation();
+  const addManualSkill = useMutation(trpc.skills.addManualSkill.mutationOptions());
+  const deleteSkill = useMutation(trpc.skills.deleteUserSkill.mutationOptions());
+  const updateSkills = useMutation(trpc.skills.updateUserSkills.mutationOptions());
+  const updateUserSkill = useMutation(trpc.skills.updateUserSkill.mutationOptions());
 
   const handleOpenModal = (): void => {
     setNewSkillName("");
     setSearch("");
     setNewSkillType("ADDED");
-    setNewSkillLevel("Intermediate");
+    setNewSkillLevel("intermediate");
     setErrorMessage("");
     setIsModalOpen(true);
   };
@@ -131,22 +129,15 @@ return {
     );
   };
 
-  const handleLevelChange = (id: string, updatedLevel: "Beginner" | "Intermediate" | "Expert"): void => {
+  const handleLevelChange = (id: string, updatedLevel: SkillLevel): void => {
     setLocalSkillsModifiers((prev) => ({
       ...prev,
       [id]: { ...prev[id], level: updatedLevel },
     }));
 
-    const score =
-      updatedLevel === "Beginner"
-        ? 30
-        : updatedLevel === "Intermediate"
-        ? 60
-        : 90;
-
     updateUserSkill.mutate({
       skillId: id,
-      strengthScore: score,
+      strengthScore: levelToStrength(updatedLevel),
     });
   };
 
@@ -172,12 +163,12 @@ return {
         [
           {
             skillName: newSkillName.trim(),
-            level: newSkillLevel.toLowerCase() as "beginner" | "intermediate" | "expert",
+            strength: levelToStrength(newSkillLevel),
           },
         ],
         {
           onSuccess: async () => {
-            await utils.skills.getUserSkills.invalidate();
+            await queryClient.invalidateQueries({ queryKey: trpc.skills.getUserSkills.queryKey() });
             setIsModalOpen(false);
             setSearch("");
             setNewSkillName("");
@@ -197,9 +188,10 @@ return {
     }));
 
     updateSkills.mutate(
-      {
-        skills: confirmedSkills,
-      },
+      confirmedSkills.map(skill => ({
+        skillId: skill.id,
+        strengthScore: levelToStrength(skill.level)
+      })),
       {
         onSuccess: () => {
           navigate("/availability");
@@ -285,13 +277,13 @@ return {
               <div className="mt-auto flex flex-col gap-1.5">
                 <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Level</label>
                 <div className="grid grid-cols-3 gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
-                  {(["Beginner", "Intermediate", "Expert"] as const).map((lvl) => (
+                  {SKILL_LEVELS.map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => handleLevelChange(skill.id, lvl)}
-                      className={`py-1 text-[11px] font-semibold rounded-md transition-all duration-150 ${
-                        (skill.level || "Intermediate") === lvl
+                      className={`py-1 text-[11px] font-semibold rounded-md transition-all duration-150 capitalize ${
+                        (skill.level || "intermediate") === lvl
                           ? "bg-slate-950 text-white shadow-sm"
                           : "text-slate-400 hover:text-slate-600"
                       }`}
@@ -449,12 +441,12 @@ return {
                   Skill Level
                 </label>
                 <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                  {(["Beginner", "Intermediate", "Expert"] as const).map((lvl) => (
+                  {SKILL_LEVELS.map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => setNewSkillLevel(lvl)}
-                      className={`py-2 text-xs font-semibold rounded-lg transition-all duration-150 ${
+                      className={`py-2 text-xs font-semibold rounded-lg transition-all duration-150 capitalize ${
                         newSkillLevel === lvl
                           ? "bg-slate-950 text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-800"

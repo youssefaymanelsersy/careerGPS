@@ -17,6 +17,7 @@ export const user = pgTable("user", {
     availableHoursPerDay: integer("available_hours_per_day"),
     timezone: text("timezone"),
     preferredStartTime: time("preferred_start_time"),
+    lastSeenAt: timestamp("last_seen_at"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

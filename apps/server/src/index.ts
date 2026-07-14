@@ -7,10 +7,14 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
 import cvRoute from "./modules/cv/routes/restful_route";
+import userRoute from "./modules/user/routes/restful_route";
 import speachRoute from "./modules/speech/restful_route";
 import multer from "multer";
 import type { Request, Response, NextFunction } from "express";
 
+
+import "@/modules/notifications/workers/reminder.worker";
+import "@/modules/notifications/workers/missed_session.worker";
 
 const app = express();
 
@@ -37,6 +41,7 @@ app.use(express.json());
 app.all("/api/auth{/*path}", toNodeHandler(auth));
 
 app.use("/cv", cvRoute);
+app.use("/user", userRoute);
 app.use("/speach", speachRoute);
 app.use(
   (err: any, _req: Request, res: Response, next: NextFunction) => {

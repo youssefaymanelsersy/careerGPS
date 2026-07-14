@@ -8,21 +8,22 @@ import Logo from '@/components/ui/logo'
 function MarketingLayout() {
   const navigate = useNavigate()
   const { data: session, isPending } = authClient.useSession()
+  const isVerifyEmailRoute = window.location.pathname === '/verify-email'
 
   useEffect(() => {
-    if (!isPending && session) {
+    if (!isPending && session && !isVerifyEmailRoute) {
       navigate(
         session.user.isOnboarded ? '/roadmap' : '/onboarding',
         { replace: true }
       )
     }
-  }, [session, isPending, navigate])
+  }, [session, isPending, navigate, isVerifyEmailRoute])
 
   if (isPending) {
     return <div className="h-screen flex justify-center items-center"><Logo /></div>
   }
 
-  if (session) {
+  if (session && !isVerifyEmailRoute) {
     return null
   }
 

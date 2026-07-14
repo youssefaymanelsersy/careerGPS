@@ -26,18 +26,13 @@ export function calculateActivityScore({
     if (!contributions.size && !repos.length) return 0;
 
     const now = Date.now();
-    const allowedRepoNames = new Set(repos.map((repo) => repo.full_name));
-    const hasRepoFilter = allowedRepoNames.size > 0;
+    const contributionsForScoring = [...contributions.values()];
 
-    const contributionsForScoring = hasRepoFilter
-        ? [...contributions.entries()]
-            .filter(([repoName]) => allowedRepoNames.has(repoName))
-            .map(([, contribution]) => contribution)
-        : [...contributions.values()];
+    const nonForkRepos = repos.filter((repo) => !repo.fork);
 
     const reposForActivity =
-        repos.length > 0
-            ? repos
+        nonForkRepos.length > 0
+            ? nonForkRepos
             : [...contributions.values()].map((contribution) => ({
                 full_name: contribution.repoName,
                 pushed_at: contribution.lastActivityAt,
@@ -66,13 +61,6 @@ export function calculateActivityScore({
     const recentActivityScore = clamp(
         events.filter((event) => {
             if (!ACTIVITY_EVENT_TYPES.has(event.type)) return false;
-
-            if (hasRepoFilter) {
-                const repoName = event.repo?.name;
-                if (typeof repoName !== "string" || !allowedRepoNames.has(repoName)) {
-                    return false;
-                }
-            }
 
             const eventTimestamp = Date.parse(event.created_at);
             return (

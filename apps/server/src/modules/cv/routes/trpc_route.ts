@@ -1,4 +1,6 @@
 import { router, protectedProcedure } from "@/trpc/index";
+import { parseCVData } from "../cv-parser";
+import { responseBodySchema } from "../parsedCv_schema";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db } from "@/db";
@@ -21,7 +23,7 @@ export const cvRouter = router({
           ))
 
       const userCV = rows[0];
-      if (!userCV) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!userCV) return null;
 
       return { status: userCV.status, errorMessage: userCV.errorMessage ?? null };
     }),
@@ -37,7 +39,7 @@ export const cvRouter = router({
       .limit(1);
       
     const userCV = rows[0];
-    if (!userCV) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!userCV) return null;
     return userCV;
   }),
 
@@ -54,7 +56,7 @@ export const cvRouter = router({
           ));
 
     const userCV = rows[0];
-    if (!userCV) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!userCV) return null;
     return userCV;
   }),
 
@@ -75,7 +77,7 @@ export const cvRouter = router({
       .where( eq(cv.userId, userId) )
       .orderBy(desc(cv.createdAt));
 
-    if (!rows || rows.length<= 0 ) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!rows || rows.length <= 0) return [];
     return rows;
   }),
   
@@ -88,9 +90,9 @@ export const cvRouter = router({
         .where(eq(cv.id , input.cvId));
 
       const userCV = rows[0];
-      if (!userCV) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!userCV) return null;
       if (userCV.userId !== ctx.session.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      if ( userCV.status  !== "completed") throw new TRPCError({ code: "PRECONDITION_FAILED" });
+      if (userCV.status !== "completed") throw new TRPCError({ code: "PRECONDITION_FAILED" });
 
       return { parsedData: userCV.parsedData };
     }),
@@ -127,6 +129,79 @@ export const cvRouter = router({
         }
 
       return { success: true };
+    }),
+
+  reparseCV: protectedProcedure
+    .input(z.object({ cvId: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      const rows = await db
+        .select({ id: cv.id, userId: cv.userId, fileUrl: cv.fileUrl })
+        .from(cv)
+        .where(eq(cv.id, input.cvId));
+      
+      const userCV = rows[0];
+      if (!userCV) throw new TRPCError({ code: "NOT_FOUND", message: "CV not found" });
+      if (userCV.userId !== ctx.session.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!userCV.fileUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "No file URL found for this CV" });
+
+      try {
+        const parserBody = await parseCVData(userCV.id, userCV.fileUrl);
+        const validResponse = responseBodySchema.safeParse(parserBody);
+        
+        if (!validResponse.success) {
+          await db.update(cv).set({ status: "failed", errorMessage: "Invalid payload from parser service" }).where(eq(cv.id, userCV.id));
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Invalid payload from parser service" });
+        }
+
+        const cvData = validResponse.data;
+
+        if (cvData.status === "completed") {
+          await db.update(cv).set({ 
+            status: "completed",
+            parsedData: cvData.parsedData ?? null,
+            errorMessage: null
+          }).where(eq(cv.id, userCV.id));
+
+          if (ctx.session.user.roleId) {
+            const { evaluateUserForRole } = await import("@/modules/roles/service");
+            const { addManualSkill } = await import("@/modules/skills/service");
+            
+            // Sync new CV skills to database BEFORE evaluating
+            if (cvData.parsedData?.skills?.technical) {
+                for (const skill of cvData.parsedData.skills.technical) {
+                    let strength = 50;
+                    if (skill.level) {
+                        const l = skill.level.toLowerCase();
+                        if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 75;
+                        else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 50;
+                        else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 25;
+                    }
+                    
+                    await addManualSkill({
+                        userId: ctx.session.user.id,
+                        skillName: skill.name,
+                        strength: strength
+                    });
+                }
+            }
+
+            await evaluateUserForRole({
+                userId: ctx.session.user.id,
+                roleId: ctx.session.user.roleId,
+            });
+          }
+
+          return { success: true, parsedData: cvData.parsedData };
+        } else if (cvData.status === "failed") {
+          await db.update(cv).set({ status: "failed", errorMessage: cvData.errorMessage || "Parser error" }).where(eq(cv.id, userCV.id));
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cvData.errorMessage || "Parser service returned failed status" });
+        } else {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Unexpected status from parser service" });
+        }
+      } catch (err: any) {
+        console.error("reparseCV failed:", err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: err.message || "Failed to reparse CV" });
+      }
     }),
 });
 

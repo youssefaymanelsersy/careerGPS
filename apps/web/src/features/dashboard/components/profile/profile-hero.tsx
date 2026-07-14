@@ -2,7 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { TIER_COLORS, calculateTier, type GamificationTier } from "./profile.types";
-import { Briefcase, Crown, Diamond, Medal, Star, Trophy } from "lucide-react";
+import { Briefcase, Crown, Diamond, Medal, Star, Trophy, PlusIcon, Loader2Icon } from "lucide-react";
+import { useRef, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
+import { env } from "@careergps/env/web";
 
 interface ProfileHeroProps {
 	user: {
@@ -35,15 +39,64 @@ export function ProfileHero({ user, roleTitle, finalScore, activityScore }: Prof
 		.toUpperCase()
 		.slice(0, 2);
 
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [isUploading, setIsUploading] = useState(false);
+
+	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		setIsUploading(true);
+		try {
+			const formData = new FormData();
+			formData.append("image", file);
+
+			const res = await fetch(env.VITE_SERVER_URL + "/user/avatar", {
+				method: "POST",
+				body: formData,
+				credentials: "include"
+			});
+
+			if (!res.ok) throw new Error("Upload failed");
+
+			const data = await res.json();
+			if (data.url) {
+				await authClient.updateUser({ image: data.url });
+				toast.success("Profile picture updated");
+			}
+		} catch (error) {
+			toast.error("Failed to upload image");
+		} finally {
+			setIsUploading(false);
+		}
+	};
+
 	return (
 		<Card className="overflow-hidden">
 			<div className={`h-2 bg-gradient-to-r ${colors.gradient}`} />
 			<CardContent className="p-6">
 				<div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-					<Avatar className="size-20">
-						<AvatarImage src={user.image || undefined} alt={user.name} />
-						<AvatarFallback className="text-lg">{initials}</AvatarFallback>
-					</Avatar>
+					<div className="relative inline-block">
+						<Avatar className="size-20">
+							<AvatarImage src={user.image || undefined} alt={user.name} />
+							<AvatarFallback className="text-lg">{initials}</AvatarFallback>
+						</Avatar>
+						<button 
+							onClick={() => fileInputRef.current?.click()}
+							disabled={isUploading}
+							className="absolute bottom-0 right-0 p-1 bg-primary text-primary-foreground rounded-full border-2 border-background shadow-sm hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+							aria-label="Upload profile picture"
+						>
+							{isUploading ? <Loader2Icon className="size-3 animate-spin" /> : <PlusIcon className="size-3" />}
+						</button>
+						<input 
+							type="file" 
+							ref={fileInputRef} 
+							onChange={handleImageChange} 
+							accept="image/*" 
+							className="hidden" 
+						/>
+					</div>
 
 					<div className="flex-1 space-y-2">
 						<div className="flex flex-wrap items-center gap-2">

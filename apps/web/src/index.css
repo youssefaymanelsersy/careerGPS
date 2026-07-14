@@ -235,3 +235,18 @@
 .skeleton--shimmer:has(.skeleton) .skeleton::after {
 	content: none;
 }
+
+@media print {
+	/* Hide global navigation and sidebars during print */
+	header, aside, nav, footer, [data-sidebar="sidebar"] {
+		display: none !important;
+	}
+
+	/* Hide Tanstack Query Devtools and other floating overlays */
+	#tanstack-query-devtools, 
+	.tsqd-parent-container, 
+	[class*="tsqd-"],
+	#react-query-devtools-root {
+		display: none !important;
+	}
+}

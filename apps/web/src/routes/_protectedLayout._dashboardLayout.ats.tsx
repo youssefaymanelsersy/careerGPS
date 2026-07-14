@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { AlertCircleIcon, FileTextIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,12 @@ import { AtsResults } from "@/features/dashboard/components/ats-results";
 
 export default function DashboardATS() {
   const navigate = useNavigate();
-  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const { atsScore, data, isPending, isSuccess, reset } = useAtsEvaluate();
   const { data: quota, isLoading: isQuotaLoading } = useRemainingAiQuota("ats") as any;
 
   const handleReset = () => {
-    setFile(null);
+    setFileName(null);
     reset();
   };
 
@@ -66,8 +66,8 @@ export default function DashboardATS() {
     );
   }
 
-  if (isPending && file) {
-    return <AtsLoading fileName={file.name} />;
+  if (isPending && fileName) {
+    return <AtsLoading fileName={fileName} />;
   }
 
   return (
@@ -86,9 +86,10 @@ export default function DashboardATS() {
         </div>
       )}
       <AtsUpload
-        onSubmit={(f) => {
-          setFile(f);
-          atsScore(f);
+        onSubmit={(data) => {
+          if (data.file) setFileName(data.file.name);
+          else setFileName("Existing CV");
+          atsScore(data);
         }}
         disabled={isPending}
       />

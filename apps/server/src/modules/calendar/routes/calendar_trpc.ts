@@ -7,10 +7,64 @@ import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { skillCurriculumNodes } from "@/modules/skills/db/curriculum_schema";
 import { roadmapNodes } from "@/modules/roadmap/db/schema";
 import { completeRoadmapNode } from "@/modules/roadmap/service";
+import { settleStreak } from "@/modules/streaks/services/streak.service";
+import { dispatchNotification } from "@/modules/notifications/services/notifications.service";
+import { user } from "@/modules/user/db/schema";
+
+import { notifications } from "@/modules/notifications/db/schema";
+import { fromZonedTime } from "date-fns-tz";
+
+// helper to compute reminderAt
+async function computeReminderAt(userId: string, date: string, startTime: string, endTime: string): Promise<Date | null> {
+    const userRecord = await db.query.user.findFirst({ where: eq(user.id, userId) });
+    if (!userRecord || !userRecord.timezone) return null;
+
+    // Parse date + startTime in user's timezone to UTC Date object
+    const startDt = fromZonedTime(`${date}T${startTime}`, userRecord.timezone);
+    const endDt = fromZonedTime(`${date}T${endTime}`, userRecord.timezone);
+
+    const durationMinutes = (endDt.getTime() - startDt.getTime()) / 60000;
+    
+    // cap at min(15, sessionDurationMinutes)
+    const leadMinutes = Math.min(15, Math.max(0, durationMinutes));
+
+    startDt.setMinutes(startDt.getMinutes() - leadMinutes);
+    return startDt;
+}
+
+async function fireScheduleEmptyIfNeeded(userId: string, needsNewSchedule: boolean) {
+    if (!needsNewSchedule) return;
+    
+    const lastNotif = await db.query.notifications.findFirst({
+        where: and(
+            eq(notifications.userId, userId),
+            eq(notifications.type, "schedule_empty"),
+            gte(notifications.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))
+        )
+    });
+
+    if (!lastNotif) {
+        await dispatchNotification({
+            userId,
+            type: "schedule_empty",
+            channels: ["in_app", "email"]
+        });
+    }
+}
 
 export const calendarRouter = router({
     generate: protectedProcedure.mutation(async ({ ctx }) => {
         const events = await generateCalendar(ctx.session.user.id);
+        
+        for (const ev of events) {
+            const reminderAt = await computeReminderAt(ctx.session.user.id, ev.event.date, ev.event.startTime, ev.event.endTime);
+            if (reminderAt) {
+                await db.update(calendarEvents)
+                    .set({ reminderAt })
+                    .where(eq(calendarEvents.id, ev.event.id));
+            }
+        }
+
         return { 
             success: true,
             count: events.length,
@@ -59,9 +113,21 @@ export const calendarRouter = router({
                 )
             });
 
+            const needsNewSchedule = !futureScheduledEvents;
+
+            await settleStreak(ctx.session.user.id, today, false);
+            await fireScheduleEmptyIfNeeded(ctx.session.user.id, needsNewSchedule);
+
+            const userData = await db.query.user.findFirst({
+                where: eq(user.id, ctx.session.user.id),
+                columns: { availableHoursPerDay: true }
+            });
+            const availableHoursPerDay = userData?.availableHoursPerDay ?? 2;
+
             return {
                 events,
-                needsNewSchedule: !futureScheduledEvents
+                needsNewSchedule,
+                availableHoursPerDay
             };
         }),
 
@@ -91,9 +157,21 @@ export const calendarRouter = router({
             )
         });
 
+        const needsNewSchedule = !futureScheduledEvents;
+
+        await settleStreak(ctx.session.user.id, today, false);
+        await fireScheduleEmptyIfNeeded(ctx.session.user.id, needsNewSchedule);
+
+        const userData = await db.query.user.findFirst({
+            where: eq(user.id, ctx.session.user.id),
+            columns: { availableHoursPerDay: true }
+        });
+        const availableHoursPerDay = userData?.availableHoursPerDay ?? 2;
+
         return {
             events,
-            needsNewSchedule: !futureScheduledEvents
+            needsNewSchedule,
+            availableHoursPerDay
         };
     }),
 
@@ -114,6 +192,14 @@ export const calendarRouter = router({
             });
 
             if (!event) throw new Error("Event not found or unauthorized");
+
+            if (updates.date || updates.startTime || updates.endTime) {
+                const newDate = updates.date ?? event.date;
+                const newStartTime = updates.startTime ?? event.startTime;
+                const newEndTime = updates.endTime ?? event.endTime;
+                (updates as any).reminderAt = (await computeReminderAt(ctx.session.user.id, newDate, newStartTime, newEndTime)) as any;
+                (updates as any).reminderSentAt = null;
+            }
 
             await db.update(calendarEvents)
                 .set(updates)
@@ -162,6 +248,11 @@ export const calendarRouter = router({
                                 eq(roadmapNodes.status, "pending")
                             )
                         );
+                }
+
+                if (updates.status === "completed") {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    await settleStreak(ctx.session.user.id, todayStr, true);
                 }
             }
 

@@ -298,12 +298,16 @@ function Stepper(props: StepperProps) {
       hasValidation: () => !!propsRef.current.onValidate,
       addStep: (value, completed, disabled) => {
         const newStep: StepState = { value, completed, disabled };
-        stateRef.current.steps.set(value, newStep);
+        const newSteps = new Map(stateRef.current.steps);
+        newSteps.set(value, newStep);
+        stateRef.current.steps = newSteps;
         propsRef.current.onValueAdd?.(value);
         store.notify();
       },
       removeStep: (value) => {
-        stateRef.current.steps.delete(value);
+        const newSteps = new Map(stateRef.current.steps);
+        newSteps.delete(value);
+        stateRef.current.steps = newSteps;
         propsRef.current.onValueRemove?.(value);
         store.notify();
       },
@@ -311,7 +315,9 @@ function Stepper(props: StepperProps) {
         const step = stateRef.current.steps.get(value);
         if (step) {
           const updatedStep: StepState = { ...step, completed, disabled };
-          stateRef.current.steps.set(value, updatedStep);
+          const newSteps = new Map(stateRef.current.steps);
+          newSteps.set(value, updatedStep);
+          stateRef.current.steps = newSteps;
 
           if (completed !== step.completed) {
             propsRef.current.onValueComplete?.(value, completed);

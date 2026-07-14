@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Clock, Calendar } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import Stepper from './Stepper';
 import { trpc } from '../utils/trpc';
 import type { ChangeEvent } from "react";
+import { useMutation } from '@tanstack/react-query';
 
 export default function TimeAvailability() {
   const [hours, setHours] = useState<number>(() => {
@@ -17,7 +18,8 @@ export default function TimeAvailability() {
   });
 
   const navigate = useNavigate();
-  const setAvailability = trpc.user.setAvailability.useMutation({
+  const setAvailability = useMutation({
+    ...trpc.user.setAvailability.mutationOptions(),
     onSuccess: () => {
       localStorage.setItem("study_hours", JSON.stringify(hours));
       localStorage.setItem("study_days", JSON.stringify(days));

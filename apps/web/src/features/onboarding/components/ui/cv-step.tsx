@@ -2,11 +2,14 @@ import { useState } from "react";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQueryClient } from "@tanstack/react-query";
 import { StepperNext, StepperPrev } from "@/components/ui/stepper";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Spinner } from "@/components/ui/spinner";
 import { useUploadCV } from "@/features/onboarding/onboarding.service";
 import type { SyncedSkill } from "@/features/onboarding/onboarding.types";
+import { trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
 interface CVStepProps {
   onSuccess: (skills: SyncedSkill[]) => void;
@@ -15,7 +18,33 @@ interface CVStepProps {
 
 export function CVStep({ onSuccess, onSkip }: CVStepProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [cvMode, setCvMode] = useState<"upload" | "existing">("upload");
   const uploadMutation = useUploadCV();
+  const queryClient = useQueryClient();
+  const [isFetchingParsed, setIsFetchingParsed] = useState(false);
+
+  const handleUseExisting = async (url: string, cvId: string) => {
+    try {
+      setIsFetchingParsed(true);
+      const data = (await queryClient.fetchQuery(
+        trpc.cv.getParsedData.queryOptions({ cvId })
+      )) as any;
+      if (data && data.parsedData) {
+        onSuccess(
+          data.parsedData.skills.technical.map((s: any) => ({
+            skillName: s.name,
+            strength: (!s.level) ? 0 : 40,
+          }))
+        );
+      } else {
+        toast.error("Parsed data not available for this CV. Try reparsing it.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch parsed data");
+    } finally {
+      setIsFetchingParsed(false);
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -48,9 +77,6 @@ export function CVStep({ onSuccess, onSkip }: CVStepProps) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <div className="space-y-4 text-center flex flex-col justify-center">
-            <div className="flex justify-center">
-
-            </div>
             <div className="rounded-lg border p-4">
               <p className="text-2xl font-bold">{data.skills.length}</p>
               <p className="text-sm text-muted-foreground">Skills Extracted</p>
@@ -88,15 +114,15 @@ export function CVStep({ onSuccess, onSkip }: CVStepProps) {
           />
 
           {uploadMutation.isPending && file ? (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-4">
               <Spinner />
               <span>Parsing {file.name}...</span>
             </div>
           ) : (
             <Button
               onClick={handleUpload}
-              disabled={!file}
-              className="w-full"
+              disabled={!file || uploadMutation.isPending}
+              className="w-full mt-4"
             >
               Upload & Parse
             </Button>

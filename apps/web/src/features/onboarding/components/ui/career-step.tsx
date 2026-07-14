@@ -24,6 +24,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetAllRoles } from "@/features/onboarding/onboarding.service";
@@ -94,14 +95,15 @@ export function CareerStep({ onComplete, onFinish, isFinishing }: CareerStepProp
           Select the career path you want to pursue
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col">
-        <div className="flex-1">
-          <RadioGroup
-            value={selectedRoleId ?? ""}
-            onValueChange={handleChange}
-            variant="secondary"
-            className="gap-2"
-          >
+      <CardContent className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 min-h-0">
+          <ScrollArea className="h-full pr-4">
+            <RadioGroup
+              value={selectedRoleId ?? ""}
+              onValueChange={handleChange}
+              variant="secondary"
+              className="gap-2"
+            >
             {sortedRoles.map((role) => (
               <Collapsible key={role.id} className="w-full">
                 <FieldLabel htmlFor={`role-${role.id}`}>
@@ -129,7 +131,8 @@ export function CareerStep({ onComplete, onFinish, isFinishing }: CareerStepProp
                 )}
               </Collapsible>
             ))}
-          </RadioGroup>
+            </RadioGroup>
+          </ScrollArea>
         </div>
       </CardContent>
       <CardFooter className="justify-between">

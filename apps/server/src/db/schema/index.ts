@@ -7,5 +7,7 @@ export * from "../../modules/roadmap/db/schema";
 export * from "../../modules/user/db/schema";
 export * from "../../modules/skills/db/curriculum_schema";
 export * from "../../modules/calendar/db/schema";
+export * from "../../modules/notifications/db/schema";
+export * from "../../modules/streaks/db/schema";
 export * from "../../modules/interview/db/schema";
 export * from "../../modules/usage/db/schema";
