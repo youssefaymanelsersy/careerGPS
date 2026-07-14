@@ -990,4 +990,12 @@ Numeric score fields come back as **strings** (Postgres `numeric` type) — cast
 2. **`roles.setUserRole`** doesn't validate that `roleId` exists before writing, so a bad id fails with a generic 500 rather than 404/400.
 3. **`skills.addManualSkill`**'s `added`/`missing` item shape is inferred from a service function outside this route file — get the exact field names confirmed if the UI needs more than `skillName`.
 4. **CV upload strengths** (`0` or `40` heuristic) are on a different scale than the `0–100` `strengthScore` used everywhere else in the skills system — decide in UI whether/how these get reconciled when a user both uploads a CV and manually sets skill strength.
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 5. Calendar endpoints are implemented on this branch — see the `calendar` section above.
+=======
+5. No calendar/study-session endpoints exist on this branch yet — anything calendar-related in the frontend should stub against the planning doc, not this contract, until that module ships.
+>>>>>>> Stashed changes
+=======
+5. No calendar/study-session endpoints exist on this branch yet — anything calendar-related in the frontend should stub against the planning doc, not this contract, until that module ships.
+>>>>>>> Stashed changes

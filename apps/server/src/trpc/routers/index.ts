@@ -12,6 +12,7 @@ import { calendarRouter } from "@/modules/calendar/routes/calendar_trpc";
 import { notificationsRouter } from "@/modules/notifications/routes/notifications_trpc";
 import { streaksRouter } from "@/modules/streaks/routes/streaks_trpc";
 import { aiRouter } from "./ai.router";
+import { interviewRouter } from "../../modules/interview/router";
 
 export const appRouter = router({
     ai: aiRouter,
@@ -27,7 +28,7 @@ export const appRouter = router({
     calendar: calendarRouter,
     notifications: notificationsRouter,
     streaks: streaksRouter,
+    interview: interviewRouter,
 });
 
 export type AppRouter = typeof appRouter;
-
