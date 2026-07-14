@@ -29,19 +29,26 @@ export function useAtsEvaluate() {
     }
   }))
 
-  const atsScore = async (file: File) => {
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Please upload a PDF file");
-      throw new Error("Invalid file type");
-    }
+  const atsScore = async (input: { file?: File, cvUrl?: string }) => {
+    if (input.file) {
+      const file = input.file;
+      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+        toast.error("Please upload a PDF file");
+        throw new Error("Invalid file type");
+      }
 
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("File size must be under 10MB");
-      throw new Error("File too large");
-    }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error("File size must be under 10MB");
+        throw new Error("File too large");
+      }
 
-    const fileBase64 = await fileToBase64(file);
-    return mutation.mutateAsync({ fileBase64, fileName: file.name });
+      const fileBase64 = await fileToBase64(file);
+      return mutation.mutateAsync({ fileBase64, fileName: file.name });
+    } else if (input.cvUrl) {
+      return mutation.mutateAsync({ cvUrl: input.cvUrl });
+    } else {
+      throw new Error("Missing input");
+    }
   };
 
   return {
@@ -70,7 +77,8 @@ function imageFileToBase64(file: File): Promise<string> {
 }
 
 export interface ScoreMatchInput {
-  file: File;
+  file?: File;
+  cvUrl?: string;
   jobDescription?: string;
   jobDescriptionImage?: File;
 }
@@ -85,19 +93,29 @@ export function useScoreMatch() {
   );
 
   const scoreMatch = async (input: ScoreMatchInput) => {
-    const { file, jobDescription, jobDescriptionImage } = input;
+    const { file, cvUrl, jobDescription, jobDescriptionImage } = input;
 
-    if (
-      file.type !== "application/pdf" &&
-      !file.name.toLowerCase().endsWith(".pdf")
-    ) {
-      toast.error("Please upload a PDF file for your CV");
-      throw new Error("Invalid file type");
-    }
+    let fileBase64: string | undefined;
+    let fileName: string | undefined;
 
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("CV file size must be under 10MB");
-      throw new Error("File too large");
+    if (file) {
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
+        toast.error("Please upload a PDF file for your CV");
+        throw new Error("Invalid file type");
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error("CV file size must be under 10MB");
+        throw new Error("File too large");
+      }
+      
+      fileBase64 = await fileToBase64(file);
+      fileName = file.name;
+    } else if (!cvUrl) {
+      throw new Error("Either file or cvUrl must be provided");
     }
 
     const hasText = jobDescription && jobDescription.trim().length > 0;
@@ -119,13 +137,12 @@ export function useScoreMatch() {
       }
     }
 
-    const fileBase64 = await fileToBase64(file);
-
     if (hasImage && jobDescriptionImage) {
       const imageBase64 = await imageFileToBase64(jobDescriptionImage);
       return mutation.mutateAsync({
         fileBase64,
-        fileName: file.name,
+        fileName,
+        cvUrl,
         jobDescriptionImage: {
           base64: imageBase64,
           name: jobDescriptionImage.name,
@@ -135,7 +152,8 @@ export function useScoreMatch() {
 
     return mutation.mutateAsync({
       fileBase64,
-      fileName: file.name,
+      fileName,
+      cvUrl,
       jobDescription: jobDescription ?? "",
     });
   };

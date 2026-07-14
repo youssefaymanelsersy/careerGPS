@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
+import { useState } from "react";
 import Loader from "@/components/composites/loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,8 @@ export default function SignUpForm() {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
 
+  const [isVerificationSent, setIsVerificationSent] = useState(false);
+
   const form = useForm({
     defaultValues: {
       email: "",
@@ -59,8 +62,8 @@ export default function SignUpForm() {
         },
         {
           onSuccess: () => {
-            navigate("/onboarding");
-            toast.success("Sign up successful");
+            setIsVerificationSent(true);
+            toast.success("Account created successfully!");
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
@@ -75,6 +78,23 @@ export default function SignUpForm() {
 
   if (isPending) {
     return <Loader />;
+  }
+
+  if (isVerificationSent) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height))] p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl font-bold">
+              Check your email
+            </CardTitle>
+            <CardDescription className="text-center">
+              We've sent a verification link to your email address. Please click the link to activate your account.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
   }
 
   return (

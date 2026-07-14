@@ -99,10 +99,19 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
       return res.status(200).json({
         cvId: id,
         status,
-        "skills" :technical.map((skill)=>({
-          "skillName":skill.name ,
-          "strength":(!skill.level)? 0 : 40 ,
-        })) ,
+        "skills": technical.map((skill) => {
+          let strength = 75; // Default solid strength if they list it on their CV
+          if (skill.level) {
+            const l = skill.level.toLowerCase();
+            if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 95;
+            else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 80;
+            else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 50;
+          }
+          return {
+            "skillName": skill.name,
+            "strength": strength,
+          };
+        }),
       });
 
     } else if (status === "failed") {

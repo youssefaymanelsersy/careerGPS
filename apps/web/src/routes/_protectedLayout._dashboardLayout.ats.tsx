@@ -5,11 +5,11 @@ import { AtsLoading } from "@/features/dashboard/components/ats-loading";
 import { AtsResults } from "@/features/dashboard/components/ats-results";
 
 export default function DashboardATS() {
-  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const { atsScore, data, isPending, isSuccess, reset } = useAtsEvaluate();
 
   const handleReset = () => {
-    setFile(null);
+    setFileName(null);
     reset();
   };
 
@@ -17,15 +17,16 @@ export default function DashboardATS() {
     return <AtsResults data={data} onReset={handleReset} />;
   }
 
-  if (isPending && file) {
-    return <AtsLoading fileName={file.name} />;
+  if (isPending && fileName) {
+    return <AtsLoading fileName={fileName} />;
   }
 
   return (
     <AtsUpload
-      onSubmit={(f) => {
-        setFile(f);
-        atsScore(f);
+      onSubmit={(data) => {
+        if (data.file) setFileName(data.file.name);
+        else setFileName("Existing CV");
+        atsScore(data);
       }}
       disabled={isPending}
     />

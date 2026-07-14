@@ -13,9 +13,11 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "test": "bun test",
+    "seed": "tsx src/scripts/seed.ts",
     "seed:curriculum": "bun run src/modules/roadmap/db/curriculum-nodes.seed.ts"
   },
   "dependencies": {
+    "@careergps/emails": "workspace:*",
     "@careergps/env": "workspace:*",
     "@careergps/shared": "workspace:*",
     "@trpc/server": "catalog:",

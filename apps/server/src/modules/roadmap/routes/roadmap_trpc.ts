@@ -86,10 +86,7 @@ export const roadmapRouter = router({
             });
 
             if (!roadmap) {
-                throw new TRPCError({
-                    code: "NOT_FOUND",
-                    message: "Roadmap not found"
-                });
+                return null;
             }
 
             return {
@@ -148,12 +145,13 @@ export const roadmapRouter = router({
 
     getNodeInfo: protectedProcedure
         .input(z.object({ nodeId: z.string().uuid() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
             const node = await db.query.roadmapNodes.findFirst({
                 columns: {
                     curriculumNodeId: true
                 },
-                where: eq(roadmapNodes.id, input.nodeId)
+                where: eq(roadmapNodes.id, input.nodeId),
+                with: { roadmap: true }
             });
 
             if (!node) {
@@ -161,6 +159,10 @@ export const roadmapRouter = router({
                     code: "NOT_FOUND",
                     message: "Node not found"
                 });
+            }
+
+            if (node.roadmap.userId !== ctx.session.user.id) {
+                throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this node" });
             }
 
             return await db.query.skillCurriculumNodes.findFirst({

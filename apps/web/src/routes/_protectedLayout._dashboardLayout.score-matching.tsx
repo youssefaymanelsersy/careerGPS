@@ -5,11 +5,11 @@ import { ScoreMatchingLoading } from "@/features/dashboard/components/score-matc
 import { ScoreMatchingResults } from "@/features/dashboard/components/score-matching-results";
 
 export default function DashboardScoreMatching() {
-  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const { scoreMatch, data, isPending, isSuccess, reset } = useScoreMatch();
 
   const handleReset = () => {
-    setFile(null);
+    setFileName(null);
     reset();
   };
 
@@ -17,14 +17,15 @@ export default function DashboardScoreMatching() {
     return <ScoreMatchingResults data={data.match_result} onReset={handleReset} />;
   }
 
-  if (isPending && file) {
-    return <ScoreMatchingLoading fileName={file.name} />;
+  if (isPending && fileName) {
+    return <ScoreMatchingLoading fileName={fileName} />;
   }
 
   return (
     <ScoreMatchingUpload
       onSubmit={(input: ScoreMatchInput) => {
-        setFile(input.file);
+        if (input.file) setFileName(input.file.name);
+        else setFileName("Existing CV");
         scoreMatch(input);
       }}
       disabled={isPending}

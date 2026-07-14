@@ -65,8 +65,9 @@ const scoreMatchOutputSchema = z.object({
 
 const scoreMatchInputSchema = z
   .object({
-    fileBase64: z.string().min(1),
-    fileName: z.string().min(1),
+    fileBase64: z.string().min(1).optional(),
+    fileName: z.string().min(1).optional(),
+    cvUrl: z.string().url().optional(),
     jobDescription: z.string().optional(),
     jobDescriptionImage: z
       .object({
@@ -83,22 +84,42 @@ const scoreMatchInputSchema = z
       message:
         "Either jobDescription or jobDescriptionImage must be provided",
     },
+  )
+  .refine(
+    (data) => !!data.cvUrl || (!!data.fileBase64 && !!data.fileName),
+    { message: "Either cvUrl OR both fileBase64 and fileName must be provided" }
   );
 
 export const aiRouter = router({
   atsScore: protectedProcedure
     .input(
       z.object({
-        fileBase64: z.string().min(1),
-        fileName: z.string().min(1),
-      }),
+        fileBase64: z.string().min(1).optional(),
+        fileName: z.string().min(1).optional(),
+        cvUrl: z.string().url().optional(),
+      }).refine(
+        (data) => !!data.cvUrl || (!!data.fileBase64 && !!data.fileName),
+        { message: "Either cvUrl OR both fileBase64 and fileName must be provided" }
+      )
     )
     .output(atsScoreOutputSchema)
     .mutation(async ({ input }) => {
-      const buffer = Buffer.from(input.fileBase64, "base64");
+      let buffer: Buffer;
+      let name = input.fileName || "resume.pdf";
+
+      if (input.cvUrl) {
+        const cvRes = await fetch(input.cvUrl);
+        if (!cvRes.ok) throw new Error("Failed to fetch existing CV from URL");
+        const arrayBuffer = await cvRes.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      } else if (input.fileBase64 && input.fileName) {
+        buffer = Buffer.from(input.fileBase64, "base64");
+      } else {
+        throw new Error("Missing CV input");
+      }
 
       const formData = new FormData();
-      const file = new File([buffer], input.fileName, {
+      const file = new File([new Uint8Array(buffer)], name, {
         type: "application/pdf",
       });
       formData.set("file", file);
@@ -125,10 +146,22 @@ export const aiRouter = router({
     .input(scoreMatchInputSchema)
     .output(scoreMatchOutputSchema)
     .mutation(async ({ input }) => {
-      const buffer = Buffer.from(input.fileBase64, "base64");
+      let buffer: Buffer;
+      let name = input.fileName || "resume.pdf";
+
+      if (input.cvUrl) {
+        const cvRes = await fetch(input.cvUrl);
+        if (!cvRes.ok) throw new Error("Failed to fetch existing CV from URL");
+        const arrayBuffer = await cvRes.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      } else if (input.fileBase64 && input.fileName) {
+        buffer = Buffer.from(input.fileBase64, "base64");
+      } else {
+        throw new Error("Missing CV input");
+      }
 
       const formData = new FormData();
-      const file = new File([buffer], input.fileName, {
+      const file = new File([new Uint8Array(buffer)], name, {
         type: "application/pdf",
       });
       formData.set("cv_file", file);

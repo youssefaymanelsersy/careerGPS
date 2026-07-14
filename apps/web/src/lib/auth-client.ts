@@ -9,27 +9,34 @@ export const authClient = createAuthClient({
       user: {
         roleId: {
           type: "string",
+          required: false,
         },
         availableDaysPerWeek: {
           type: "number",
           isNumber: true,
+          required: false,
         },
         availableWeekdays: {
           type: "number[]",
           isNumber: true,
+          required: false,
         },
         availableHoursPerDay: {
           type: "number",
           isNumber: true,
+          required: false,
         },
         timezone: {
           type: "string",
+          required: false,
         },
         preferredStartTime: {
           type: "string",
+          required: false,
         },
         isOnboarded: {
           type: "boolean",
+          required: false,
         },
       },
     }),

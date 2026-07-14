@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
+import { useState } from "react";
 import Loader from "@/components/composites/loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ const loginSchema = z.object({
 export default function LoginForm() {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
+  const [isVerificationNeeded, setIsVerificationNeeded] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -52,8 +54,12 @@ export default function LoginForm() {
             navigate("/roadmap");
             toast.success("Login successful");
           },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
+          onError: (ctx) => {
+            if (ctx.error.code === "EMAIL_NOT_VERIFIED" || ctx.error.status === 403 || ctx.error.message?.toLowerCase().includes("verify")) {
+              setIsVerificationNeeded(true);
+            } else {
+              toast.error(ctx.error.message || ctx.error.statusText || "Login failed");
+            }
           },
         }
       );
@@ -65,6 +71,28 @@ export default function LoginForm() {
 
   if (isPending) {
     return <Loader />;
+  }
+
+  if (isVerificationNeeded) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height))]">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl font-bold">
+              Verification Required
+            </CardTitle>
+            <CardDescription className="text-center">
+              Please verify your email address to continue. Check your inbox for the verification link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button variant="outline" onClick={() => setIsVerificationNeeded(false)}>
+              Back to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -153,7 +181,7 @@ export default function LoginForm() {
                 className="w-full"
                 disabled={!state.canSubmit || state.isSubmitting}
               >
-                {state.isSubmitting ? "Logging in..." : <>Log in to dasboard <ArrowRight/></>}
+                {state.isSubmitting ? "Logging in..." : <>Log in to roadmap <ArrowRight/></>}
               </Button>
             )}
           </form.Subscribe>

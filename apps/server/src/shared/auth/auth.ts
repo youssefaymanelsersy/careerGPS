@@ -4,6 +4,7 @@ import { user } from "@/modules/user/db/schema";
 import { env } from "@careergps/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { VerificationEmail, getVerificationSubject } from "@careergps/emails";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -13,6 +14,35 @@ export const auth = betterAuth({
   trustedOrigins: [env.CORS_ORIGIN],
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: async (data) => {
+        const { Resend } = await import("resend");
+        const resend = new Resend(env.RESEND_API_KEY);
+        
+        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=reset_password&token=${data.token}`;
+        await resend.emails.send({
+            from: "CareerGPS <auth@updates.careergps.space>",
+            to: data.user.email,
+            subject: getVerificationSubject("reset_password"),
+            react: VerificationEmail({ type: "reset_password", url: frontendUrl }),
+        });
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async (data) => {
+        const { Resend } = await import("resend");
+        const resend = new Resend(env.RESEND_API_KEY);
+        
+        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=verify_email&token=${data.token}`;
+        await resend.emails.send({
+            from: "CareerGPS <auth@updates.careergps.space>",
+            to: data.user.email,
+            subject: getVerificationSubject("verify_email"),
+            react: VerificationEmail({ type: "verify_email", url: frontendUrl }),
+        });
+    }
   },
   advanced: {
     defaultCookieAttributes: {
@@ -25,31 +55,31 @@ export const auth = betterAuth({
     additionalFields: {
       roleId: {
         type: "string",
-        input: false,
+        required: false,
       },
       availableDaysPerWeek: {
         type: "number",
-        input: true,
+        required: false,
       },
       availableWeekdays: {
         type: "number[]",
-        input: true,
+        required: false,
       },
       availableHoursPerDay: {
         type: "number",
-        input: true,
+        required: false,
       },
       timezone: {
         type: "string",
-        input: true,
+        required: false,
       },
       preferredStartTime: {
         type: "string",
-        input: true,
+        required: false,
       },
       isOnboarded: {
         type: "boolean",
-        input: true,
+        required: false,
       },
     }
   },
