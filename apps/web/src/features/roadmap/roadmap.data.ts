@@ -1,5 +1,5 @@
 export type NodeStatus = "pending" | "inProgress" | "completed";
-export type NodePriority = "high" | "medium";
+export type NodePriority = "high" | "medium"|"low";
 
 export interface CurriculumResource {
   id: string;

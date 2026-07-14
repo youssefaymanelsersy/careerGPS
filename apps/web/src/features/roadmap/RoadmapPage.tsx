@@ -88,7 +88,6 @@ export function RoadmapPage() {
       return {
         ...node,
         status: computedStatus,
-        priority: "medium",
       };
     });
   }, [roadmapData?.nodes]);
