@@ -46,8 +46,9 @@ function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
 function AccordionTrigger({
 	className,
 	children,
+	chevronClassName,
 	...props
-}: AccordionPrimitive.Trigger.Props) {
+}: AccordionPrimitive.Trigger.Props & { chevronClassName?: string }) {
 	return (
 		<AccordionPrimitive.Header className="flex">
 			<AccordionPrimitive.Trigger
@@ -73,6 +74,7 @@ function AccordionTrigger({
 						"ms-auto size-4 shrink-0 text-muted-foreground",
 						"transition-transform duration-250 motion-reduce:transition-none",
 						"group-aria-expanded/accordion-trigger:-rotate-180",
+						chevronClassName
 					)}
 				/>
 			</AccordionPrimitive.Trigger>
