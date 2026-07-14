@@ -5,7 +5,7 @@ import { scoreTier, scoreBgClass } from "@/features/dashboard/utils";
 import type { ActiveRoadmap } from "./profile.types";
 import { Map, CheckCircle, Clock, Lock } from "lucide-react";
 
-type RoadmapNode = NonNullable<ActiveRoadmap["nodes"]>[number];
+type RoadmapNode = NonNullable<NonNullable<ActiveRoadmap>["nodes"]>[number];
 
 interface RoadmapProgressCardProps {
 	roadmap: ActiveRoadmap | undefined;
