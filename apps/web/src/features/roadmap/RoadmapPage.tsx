@@ -214,7 +214,7 @@ export function RoadmapPage() {
         {!showCongrats && (
           <aside
             className={`
-              fixed top-0 h-full z-[100] bg-zinc-50 dark:bg-[#0a0a0a] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out w-[85%] max-w-[380px] overflow-y-auto
+              fixed top-0 h-full z-[100] md:z-auto bg-zinc-50 dark:bg-[#0a0a0a] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out w-[85%] max-w-[380px] overflow-y-auto
               md:sticky md:top-0 md:max-h-screen md:w-[300px] md:shrink-0 md:shadow-none md:transition-none
               ${isMobileDrawerOpen ? "right-0" : "right-[-100%] md:right-0"}
             `}
