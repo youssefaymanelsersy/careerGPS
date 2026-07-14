@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { env } from "@careergps/env/server";
 import { protectedProcedure, router } from "../index";
+import {
+  checkDailyQuota,
+  incrementDailyQuota,
+  getRemainingDailyQuota,
+} from "@/modules/usage/service";
 
 const atsScoreOutputSchema = z.object({
   scores: z.object({
@@ -94,7 +99,9 @@ export const aiRouter = router({
       }),
     )
     .output(atsScoreOutputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      await checkDailyQuota(ctx.session.user.id, "ats");
+
       const buffer = Buffer.from(input.fileBase64, "base64");
 
       const formData = new FormData();
@@ -112,19 +119,24 @@ export const aiRouter = router({
       });
 
       if (!response.ok) {
+        console.log(response);
         const errorText = await response.text();
         throw new Error(
           `Hugging Face API error (${response.status}): ${errorText}`,
         );
       }
 
-      return response.json() as unknown as z.output<typeof atsScoreOutputSchema>;
+      const data = await response.json() as unknown as z.output<typeof atsScoreOutputSchema>;
+      await incrementDailyQuota(ctx.session.user.id, "ats");
+      return data;
     }),
 
   scoreMatch: protectedProcedure
     .input(scoreMatchInputSchema)
     .output(scoreMatchOutputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      await checkDailyQuota(ctx.session.user.id, "skill_match");
+
       const buffer = Buffer.from(input.fileBase64, "base64");
 
       const formData = new FormData();
@@ -171,6 +183,13 @@ export const aiRouter = router({
         match_result: z.output<typeof scoreMatchOutputSchema>["match_result"];
       };
 
+      await incrementDailyQuota(ctx.session.user.id, "skill_match");
       return { match_result: json.match_result };
+    }),
+
+  getRemainingAiQuota: protectedProcedure
+    .input(z.object({ feature: z.enum(["ats", "skill_match"]) }))
+    .query(async ({ input, ctx }) => {
+      return await getRemainingDailyQuota(ctx.session.user.id, input.feature);
     }),
 });

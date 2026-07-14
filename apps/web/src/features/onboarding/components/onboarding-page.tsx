@@ -87,7 +87,6 @@ export function OnboardingPage() {
 
       for (let i = 0; i < targetIndex; i++) {
         if (i === 1) continue;
-        if (i === 2 && skillsRef.current.length === 0) return false;
         if (i === 3 && (hoursRef.current < 1 || daysRef.current < 1)) return false;
       }
 

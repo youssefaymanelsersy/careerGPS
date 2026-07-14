@@ -10,3 +10,5 @@ export type AtsReport = AtsEvaluation["ats_report"];
 export type ScoreMatchResult = RouterOutput["ai"]["scoreMatch"];
 export type ScoreMatch = ScoreMatchResult["match_result"];
 export type ScoreMatchDetails = ScoreMatch["score_details"];
+
+export type AiQuota = RouterOutput["ai"]["getRemainingAiQuota"];

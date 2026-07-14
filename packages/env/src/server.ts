@@ -16,7 +16,8 @@ export const env = createEnv({
     AI_TEAM_ATS_URL: z.string().url(),
     AI_TEAM_MATCHING_URL: z.string().url(),
     AI_TEAM_SECRET: z.string().min(32),
-
+    GROQ_API_KEY:z.string(),
+    AI_INTERVIEW_SERVICE_URL: z.string().url(),
     HUGGING_FACE_CV_ATS_API_KEY: z.string().min(1),
     HUGGING_FACE_SKILL_MATCHING_API_KEY: z.string().min(1),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon, Calendar } from "lucide-react"
+import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon, Calendar, MicIcon } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link, useLocation } from "react-router"
@@ -24,7 +24,7 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/profile" />}>
+            <SidebarMenuButton size="lg" render={<Link to="/roadmap" />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <CompassIcon className="size-4" />
               </div>
@@ -66,6 +66,12 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
             <SidebarMenuButton isActive={location.pathname === "/calendar"} render={<Link to="/calendar" />}>
               <Calendar className="size-4" />
               <span>Calendar</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname.startsWith("/interview")} render={<Link to="/interview" />}>
+              <MicIcon className="size-4" />
+              <span>Interview</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

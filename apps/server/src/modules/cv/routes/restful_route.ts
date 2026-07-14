@@ -101,7 +101,7 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
         status,
         "skills" :technical.map((skill)=>({
           "skillName":skill.name ,
-          "strength":(!skill.level)? 0 : 40 ,
+          "strength":(!skill.level)? 25 : 60 ,
         })) ,
       });
 

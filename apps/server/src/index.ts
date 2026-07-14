@@ -7,6 +7,7 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express from "express";
 import cvRoute from "./modules/cv/routes/restful_route";
+import speachRoute from "./modules/speech/restful_route";
 import multer from "multer";
 import type { Request, Response, NextFunction } from "express";
 
@@ -36,6 +37,7 @@ app.use(express.json());
 app.all("/api/auth{/*path}", toNodeHandler(auth));
 
 app.use("/cv", cvRoute);
+app.use("/speach", speachRoute);
 app.use(
   (err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof multer.MulterError) {

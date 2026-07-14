@@ -137,6 +137,8 @@ export function RoadmapPage() {
     }
   }
 
+  const skillColorMap = useMemo(() => buildSkillColorMap(mappedNodes), [mappedNodes]);
+
   // Handle Loading & Initialization states
   if (isSessionLoading || (isMapLoading && !mapError)) return <div className="p-8 flex items-center justify-center min-h-screen"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Roadmap...</div>;
   if (!roleId) return <div className="p-8 text-center min-h-screen flex items-center justify-center text-zinc-500">Please select a career role to view your roadmap.</div>;
@@ -161,7 +163,6 @@ export function RoadmapPage() {
   }
 
   const selectedStep = mappedNodes.find((n) => n.nodeId === selectedId) || mappedNodes[0];
-  const skillColorMap = useMemo(() => buildSkillColorMap(mappedNodes), [mappedNodes]);
 
   const completedCount = mappedNodes.filter((n) => n.status === "completed").length;
   const totalCount = mappedNodes.length;

@@ -12,6 +12,7 @@ export const session = pgTable(
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    roleId: text("role_id") ,
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id")

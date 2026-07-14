@@ -1,5 +1,5 @@
 import { trpc } from "@/utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -22,11 +22,16 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export function useAtsEvaluate() {
+  const queryClient = useQueryClient();
   const mutation = useMutation(trpc.ai.atsScore.mutationOptions({
+    onSuccess: () => {
+      queryClient.invalidateQueries(
+        trpc.ai.getRemainingAiQuota.queryFilter({ feature: "ats" })
+      );
+    },
     onError: (error) => {
       toast.error(error.message || "Failed to evaluate resume");
-
-    }
+    },
   }))
 
   const atsScore = async (file: File) => {
@@ -76,8 +81,14 @@ export interface ScoreMatchInput {
 }
 
 export function useScoreMatch() {
+  const queryClient = useQueryClient();
   const mutation = useMutation(
     trpc.ai.scoreMatch.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries(
+          trpc.ai.getRemainingAiQuota.queryFilter({ feature: "skill_match" })
+        );
+      },
       onError: (error) => {
         toast.error(error.message || "Failed to score match");
       },
@@ -144,4 +155,10 @@ export function useScoreMatch() {
     ...mutation,
     scoreMatch,
   };
+}
+
+export function useRemainingAiQuota(feature: "ats" | "skill_match") {
+  return useQuery({
+    ...trpc.ai.getRemainingAiQuota.queryOptions({ feature }),
+  } as any);
 }
