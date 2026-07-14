@@ -138,7 +138,7 @@ export function RoadmapPage() {
     }
   }
 
-  const skillColorMap = useMemo(() => buildSkillColorMap(mappedNodes), [mappedNodes]);
+
 
   // Handle Loading & Initialization states
   if (isSessionLoading || (isMapLoading && !mapError)) return <div className="p-8 flex items-center justify-center min-h-screen"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Roadmap...</div>;

@@ -41,10 +41,11 @@ export function useStartInterview() {
   };
 }
 
-export function useGetSession(sessionId: string) {
+export function useGetSession(sessionId: string, pollInterval?: number) {
   return useQuery({
     ...trpc.interview.getSession.queryOptions({ sessionId }),
     enabled: !!sessionId,
+    refetchInterval: pollInterval,
   } as any);
 }
 

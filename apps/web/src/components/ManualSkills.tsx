@@ -1,13 +1,15 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import Stepper from "../components/Stepper";
 import { useState } from "react";
 import { trpc } from "../utils/trpc";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { type SkillLevel, SKILL_LEVELS, levelToStrength } from "@/features/onboarding/onboarding.types";
 
 // تعريف بنية بيانات المهارة
 interface Skill {
   id: string | number;
   name: string;
-  level: "Beginner" | "Mid" | "Expert";
+  level: SkillLevel;
   type: "design" | "js" | "code";
   isAiExtracted: boolean;
 }
@@ -41,7 +43,7 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
     return skillsArray.map((skillName, index) => ({
       id: `ai-${Date.now()}-${index}`,
       name: skillName,
-      level: "Mid", // مستوى افتراضي للمهارات المستخرجة
+      level: "intermediate", // مستوى افتراضي للمهارات المستخرجة
       type: getSkillType(skillName),
       isAiExtracted: true, // لتمييزها في شاشة المراجعة
     }));
@@ -50,24 +52,20 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
   // States الإدارة الأساسية للمهارات والبحث والتنبيهات
   const [skills, setSkills] = useState<Skill[]>(() => formatInheritedSkills(inheritedSkills));
   const [inputSkill, setInputSkill] = useState<string>("");
-  const [selectedLevel, setSelectedLevel] = useState<"Beginner" | "Mid" | "Expert">("Beginner");
+  const [selectedLevel, setSelectedLevel] = useState<SkillLevel>("beginner");
   const [search, setSearch] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>(""); 
 
-  const searchSkill = trpc.skills.searchSkill.useQuery(
-    {
-      skillWords: inputSkill,
-    },
-    {
-      enabled: inputSkill.trim().length >= 2,
-    }
-  );
+  const { data: searchSkillData } = useQuery({
+    ...trpc.skills.searchSkill.queryOptions({ skillWords: inputSkill }),
+    enabled: inputSkill.trim().length >= 2,
+  });
 
-  const addManualSkill = trpc.skills.addManualSkill.useMutation();
-  const updateUserSkill = trpc.skills.updateUserSkill.useMutation();
+  const addManualSkill = useMutation(trpc.skills.addManualSkill.mutationOptions());
+  const updateUserSkill = useMutation(trpc.skills.updateUserSkill.mutationOptions());
 
   // تأكيد أن الـ suggestions مصفوفة تحتوي على معرف واسم
-  const suggestions = (searchSkill.data as { id: string | number; name: string }[]) || [];
+  const suggestions = (searchSkillData as { id: string | number; name: string }[]) || [];
 
   const triggerAlert = (message: string) => {
     setErrorMessage(message);
@@ -85,16 +83,10 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
       return;
     }
 
-    const levelMap: Record<"Beginner" | "Mid" | "Expert", "beginner" | "intermediate" | "expert"> = {
-      Beginner: "beginner",
-      Mid: "intermediate",
-      Expert: "expert",
-    };
-
     const result = await addManualSkill.mutateAsync([
       {
         skillName: inputSkill,
-        level: levelMap[selectedLevel],
+        strength: levelToStrength(selectedLevel),
       },
     ]);
 
@@ -112,7 +104,7 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
     ]);
 
     setInputSkill("");
-    setSelectedLevel("Beginner");
+    setSelectedLevel("beginner");
   };
 
   const handleSelectSuggestion = (tech: string) => {
@@ -123,17 +115,13 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
     setSkills(skills.filter((s) => s.id !== id));
   };
 
-  const updateLevel = async (id: string | number, level: "Beginner" | "Mid" | "Expert") => {
-    const scoreMap: Record<"Beginner" | "Mid" | "Expert", number> = {
-      Beginner: 30,
-      Mid: 60,
-      Expert: 90,
-    };
-
-    await updateUserSkill.mutateAsync({
-      skillId: id as string, // تحويله حسب متطلبات الـ API الخاص بك (غالباً string)
-      strengthScore: scoreMap[level],
-    });
+  const updateLevel = async (id: string | number, level: SkillLevel) => {
+    if (typeof id === 'string' && !id.startsWith('ai-')) {
+      await updateUserSkill.mutateAsync({
+        skillId: id,
+        strengthScore: levelToStrength(level),
+      });
+    }
 
     setSkills(
       skills.map((s) =>
@@ -209,11 +197,11 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-neutral-100">
                     <div className="flex bg-white p-1 rounded-xl text-xs font-medium border border-neutral-200 shadow-sm gap-0.5">
-                      {(["Beginner", "Mid", "Expert"] as const).map((lvl) => (
+                      {SKILL_LEVELS.map((lvl) => (
                         <button
                           key={lvl}
                           onClick={() => updateLevel(skill.id, lvl)}
-                          className={`px-3.5 py-1.5 rounded-lg transition-all duration-200 font-bold ${skill.level === lvl ? "bg-black text-white shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
+                          className={`px-3.5 py-1.5 rounded-lg transition-all duration-200 font-bold capitalize ${skill.level === lvl ? "bg-black text-white shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
                         >
                           {lvl}
                         </button>
@@ -257,12 +245,12 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
             </div>
 
             <div className="flex bg-white p-1.5 rounded-2xl text-xs font-semibold w-full lg:w-auto justify-between border border-neutral-200 shadow-sm gap-1">
-              {(["Beginner", "Mid", "Expert"] as const).map((lvl) => (
+              {SKILL_LEVELS.map((lvl) => (
                 <button
                   key={lvl}
                   type="button"
                   onClick={() => setSelectedLevel(lvl)}
-                  className={`px-5 py-2.5 rounded-xl transition-all duration-300 font-bold ${selectedLevel === lvl ? "bg-black text-white scale-[1.02] shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
+                  className={`px-5 py-2.5 rounded-xl transition-all duration-300 font-bold capitalize ${selectedLevel === lvl ? "bg-black text-white scale-[1.02] shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
                 >
                   {lvl}
                 </button>
@@ -370,11 +358,11 @@ export default function AddSkills({ onSubmit }: AddSkillsProps) {
 
                   <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-neutral-100">
                     <div className="flex bg-white p-1 rounded-xl text-xs font-medium border border-neutral-200 shadow-sm gap-0.5">
-                      {(["Beginner", "Mid", "Expert"] as const).map((lvl) => (
+                      {SKILL_LEVELS.map((lvl) => (
                         <button
                           key={lvl}
                           onClick={() => updateLevel(skill.id, lvl)}
-                          className={`px-3.5 py-1.5 rounded-lg transition-all duration-200 font-bold active:scale-95 ${skill.level === lvl ? "bg-black text-white shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
+                          className={`px-3.5 py-1.5 rounded-lg transition-all duration-200 font-bold active:scale-95 capitalize ${skill.level === lvl ? "bg-black text-white shadow-sm" : "bg-white text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50"}`}
                         >
                           {lvl}
                         </button>

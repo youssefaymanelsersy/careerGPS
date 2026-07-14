@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router";
 import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +43,9 @@ export function InterviewSessionPage() {
   const navigate = useNavigate();
   const initialData = (location.state as any)?.interviewData;
 
-  const { data: sessionData, isLoading: isSessionLoading, isError: isSessionError } = useGetSession(sessionId!);
+  const [pollInterval, setPollInterval] = useState<number | undefined>(undefined);
+  const { data: rawSessionData, isLoading: isSessionLoading, isError: isSessionError } = useGetSession(sessionId!, pollInterval);
+  const sessionData = rawSessionData as any;
   const { submitAnswer, isPending: isSubmitting } = useSubmitAnswer();
 
   const [qaHistory, setQaHistory] = useState<InterviewQA[]>([]);
@@ -83,6 +85,11 @@ export function InterviewSessionPage() {
       setSessionEnded(true);
       setReview(sessionData.review ?? null);
       setProgress({ done: sessionData.turns_done, total: sessionData.total_questions });
+      if (sessionData.status === "awaiting_review" || !sessionData.review) {
+        setPollInterval(3000);
+      } else {
+        setPollInterval(undefined);
+      }
     }
   }, [sessionData]);
 
@@ -117,6 +124,9 @@ export function InterviewSessionPage() {
         setSessionEnded(true);
         setReview(response.review ?? null);
         setProgress({ done: response.turns_done, total: response.total_questions });
+        if (response.status === "awaiting_review" || !response.review) {
+          setPollInterval(3000);
+        }
       }
     } catch {
       setPageError("Failed to submit answer. Please try again.");
@@ -154,6 +164,9 @@ export function InterviewSessionPage() {
             setSessionEnded(true);
             setReview(response.review ?? null);
             setProgress({ done: response.turns_done, total: response.total_questions });
+            if (response.status === "awaiting_review" || !response.review) {
+              setPollInterval(3000);
+            }
             break;
           }
         } catch {
@@ -218,7 +231,7 @@ export function InterviewSessionPage() {
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold">Interview Results</h2>
               {review && (
-                <Badge variant="secondary" size="lg" className="capitalize">
+                <Badge variant="default" size="lg" className="capitalize">
                   {review.skill_level}
                 </Badge>
               )}
@@ -235,9 +248,9 @@ export function InterviewSessionPage() {
 
         <Separator />
 
-        {review && (
+        {review ? (
           <>
-            <Surface variant="secondary" className="flex flex-col items-center gap-4 py-10 rounded-xl">
+            <Surface className="flex flex-col items-center gap-4 py-10 rounded-xl bg-slate-50 border-slate-100">
               <div className="flex flex-col items-center gap-1">
                 <span className="text-sm text-muted-foreground">Skill Level</span>
                 <span className="text-4xl font-bold tracking-tight capitalize">{review.skill_level}</span>
@@ -257,7 +270,7 @@ export function InterviewSessionPage() {
                 </CardHeader>
                 <CardContent>
                   <ItemGroup className="gap-2">
-                    {review.strengths?.map((s, i) => (
+                    {review.strengths?.map((s: string, i: number) => (
                       <Item key={i} variant="secondary" size="sm" className="rounded-lg px-3 py-2.5 items-start">
                         <ItemMedia>
                           <CheckCircle className="size-4 text-success" />
@@ -280,7 +293,7 @@ export function InterviewSessionPage() {
                 </CardHeader>
                 <CardContent>
                   <ItemGroup className="gap-2">
-                    {review.weaknesses?.map((w, i) => (
+                    {review.weaknesses?.map((w: string, i: number) => (
                       <Item key={i} variant="secondary" size="sm" className="rounded-lg px-3 py-2.5 items-start">
                         <ItemMedia>
                           <AlertTriangle className="size-4 text-warning" />
@@ -305,7 +318,7 @@ export function InterviewSessionPage() {
                 </CardHeader>
                 <CardContent>
                   <ItemGroup className="gap-2">
-                    {review.level_up_gaps.map((g, i) => (
+                    {review.level_up_gaps.map((g: string, i: number) => (
                       <Item key={i} variant="secondary" size="sm" className="rounded-lg px-3 py-2.5 items-start">
                         <ItemContent className="gap-0">
                           <ItemTitle className="text-sm font-normal leading-snug">{g}</ItemTitle>
@@ -317,10 +330,18 @@ export function InterviewSessionPage() {
               </Card>
             )}
           </>
+        ) : (
+          <Surface className="flex flex-col items-center gap-4 py-16 rounded-xl bg-slate-50 border-slate-100">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <div className="text-center">
+              <h3 className="text-lg font-medium">Generating Your Review</h3>
+              <p className="text-sm text-muted-foreground mt-1">Our AI is analyzing your answers. This usually takes about 10-20 seconds.</p>
+            </div>
+          </Surface>
         )}
 
         <div className="flex justify-center pb-4">
-          <Button variant="outline" onClick={() => navigate("/interview")}>
+          <Button variant="default" onClick={() => navigate("/interview-setup")}>
             <ArrowLeft className="size-4 mr-2" />
             Back to Setup
           </Button>
@@ -380,10 +401,10 @@ export function InterviewSessionPage() {
         <CardHeader>
           <div className="flex items-center gap-2 mb-3">
             {currentQuestion?.category && (
-              <Badge variant="secondary">{currentQuestion.category}</Badge>
+              <Badge variant="default">{currentQuestion.category}</Badge>
             )}
             {currentQuestion?.difficulty && (
-              <Badge variant="outline">{currentQuestion.difficulty}</Badge>
+              <Badge variant="default">{currentQuestion.difficulty}</Badge>
             )}
           </div>
           <CardTitle className="text-lg font-medium leading-relaxed">
