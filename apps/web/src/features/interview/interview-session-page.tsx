@@ -223,9 +223,7 @@ export function InterviewSessionPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground mt-1">
-              You answered {progress.done} of {progress.total} questions
-            </p>
+              
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate("/interview")}>
             <ArrowLeft className="size-4 mr-2" />
@@ -241,7 +239,7 @@ export function InterviewSessionPage() {
               <div className="flex flex-col items-center gap-1">
                 <span className="text-sm text-muted-foreground">Skill Level</span>
                 <span className="text-4xl font-bold tracking-tight capitalize">{review.skill_level}</span>
-                <span className="text-sm text-muted-foreground mt-2 max-w-sm text-center">
+                <span className="text-md font-normal leading-snug mt-2 max-w-xxl text-left">
                   {review.summary}
                 </span>
               </div>
