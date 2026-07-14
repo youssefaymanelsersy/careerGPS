@@ -100,10 +100,16 @@ export async function buildUserSkillMap({
         headers,
     });
 
+    const dbSkills = await db.select({ 
+        normalizedName: skills.normalizedName, 
+        githubKeywords: skills.githubKeywords 
+    }).from(skills);
+
     const dependencySkills = calculateDependencySkills({
         repoDependencies,
         repos,
         contributions,
+        dbSkills,
     });
 
     if (process.env.GITHUB_DEBUG_GRAPHQL === "1") {
@@ -117,6 +123,7 @@ export async function buildUserSkillMap({
         repoLanguages,
         repos,
         repoDependencies,
+        dbSkills,
     });
 
     const combinedSkillStrengths = new Map(categorizedSkillStrengths);

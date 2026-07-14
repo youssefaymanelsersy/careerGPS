@@ -17,23 +17,18 @@ export function calculateInferredSkillStrengths({
     repoLanguages,
     repos,
     repoDependencies,
+    dbSkills,
 }: {
     contributions: Map<string, ContributionRepo>;
     events: GitHubEvent[];
     repoLanguages: Map<string, RepoLanguages>;
     repos: GitHubRepo[];
     repoDependencies: RepoDependencies;
+    dbSkills: Array<{ normalizedName: string, githubKeywords: string[] }>;
 }) {
     const inferred = new Map<string, number>();
 
-    const allowedRepoNames = new Set(repos.map((repo) => repo.full_name));
-    const hasRepoFilter = allowedRepoNames.size > 0;
-
-    const contributionsForScoring = hasRepoFilter
-        ? [...contributions.entries()]
-            .filter(([repoName]) => allowedRepoNames.has(repoName))
-            .map(([, contribution]) => contribution)
-        : [...contributions.values()];
+    const contributionsForScoring = [...contributions.values()];
 
     const totalContributionPoints = contributionsForScoring.reduce(
         (sum, contribution) => sum + contributionPoints(contribution),
@@ -41,12 +36,7 @@ export function calculateInferredSkillStrengths({
     );
 
     const gitEvents = events.filter((event) => {
-        if (!GIT_SIGNAL_EVENT_TYPES.has(event.type)) return false;
-
-        if (!hasRepoFilter) return true;
-
-        const repoName = event.repo?.name;
-        return typeof repoName === "string" && allowedRepoNames.has(repoName);
+        return GIT_SIGNAL_EVENT_TYPES.has(event.type);
     }).length;
 
     const activeReposCount = repos.length;
@@ -99,6 +89,7 @@ export function calculateInferredSkillStrengths({
         repoDependencies,
         repos,
         contributions,
+        dbSkills,
     });
 
     for (const [skillName, dependencyStrength] of dependencySkills) {
@@ -115,59 +106,31 @@ export function calculateDependencySkills({
     repoDependencies,
     repos,
     contributions,
+    dbSkills,
 }: {
     repoDependencies: RepoDependencies;
     repos: GitHubRepo[];
     contributions: Map<string, ContributionRepo>;
+    dbSkills: Array<{ normalizedName: string, githubKeywords: string[] }>;
 }) {
-    const dependencyToSkill = new Map<string, string>([
-        ["next", "nextjs"],
-        ["react", "react"],
-        ["express", "express"],
-        ["@nestjs/core", "nestjs"],
-        ["nestjs", "nestjs"],
-        ["fastify", "fastify"],
-        ["spring", "spring"],
-        ["flask", "flask"],
-        ["django", "django"],
-        ["mongoose", "mongodb"],
-        ["mongodb", "mongodb"],
-        ["pg", "postgres"],
-        ["mysql2", "mysql"],
-        ["redis", "redis"],
-        ["ioredis", "redis"],
-        ["numpy", "python"],
-        ["pandas", "python"],
-        ["scikit-learn", "machine-learning"],
-        ["tensorflow", "machine-learning"],
-        ["torch", "machine-learning"],
-        ["spacy", "nlp"],
-        ["docker", "docker"],
-        ["kubernetes", "kubernetes"],
-        ["terraform", "terraform"],
-        ["aws-sdk", "aws"],
-        ["firebase", "firebase"],
-        ["supabase", "supabase"],
-        ["stripe", "stripe"],
-        ["cloudinary", "cloudinary"],
-        ["nodemailer", "email"],
-        ["kafka", "kafka"],
-        ["rabbitmq", "messaging"],
-        ["amqplib", "messaging"],
-        ["prisma", "sql"],
-        ["drizzle-orm", "sql"],
-        ["typeorm", "sql"],
-        ["sequelize", "sql"],
-        ["knex", "sql"],
-        ["pg", "sql"],
-        ["mysql", "sql"],
-    ]);
+    const dependencyToSkill = new Map<string, string>();
+    const dependencyPrefixToSkill: Array<{ prefix: string; skill: string }> = [];
 
-    const dependencyPrefixToSkill: Array<{ prefix: string; skill: string }> = [
-        { prefix: "@aws-sdk/", skill: "aws" },
-    ];
+    // Dynamically build mapping from database skills
+    for (const skill of dbSkills) {
+        if (!skill.githubKeywords || skill.githubKeywords.length === 0) continue;
+        
+        for (const keyword of skill.githubKeywords) {
+            const trimmedKeyword = keyword.trim().toLowerCase();
+            if (trimmedKeyword.endsWith("/")) {
+                // If the keyword ends with a slash, treat it as a prefix (e.g. "@aws-sdk/")
+                dependencyPrefixToSkill.push({ prefix: trimmedKeyword, skill: skill.normalizedName });
+            } else {
+                dependencyToSkill.set(trimmedKeyword, skill.normalizedName);
+            }
+        }
+    }
 
-    dependencyToSkill.set("pg", "postgres");
 
     const rawScores = new Map<string, number>();
     const repoByName = new Map(repos.map((r) => [r.full_name, r]));
@@ -258,11 +221,7 @@ export function calculateSqlMetadataScore({
     ]);
 
     const hasKeywordToken = (value: string, keyword: string) => {
-        return (
-            value === keyword ||
-            value.includes(` ${keyword}`) ||
-            value.includes(`${keyword} `)
-        );
+        return value.includes(keyword);
     };
 
     let evidenceScore = 0;

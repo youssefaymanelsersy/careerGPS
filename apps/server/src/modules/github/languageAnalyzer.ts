@@ -17,13 +17,16 @@ export const SKILL_CATEGORIES: Record<string, SkillCategory> = {
     go: "languages",
     rust: "languages",
     java: "languages",
+    htmlcss: "languages",
     sql: "databases",
     postgres: "databases",
     mysql: "databases",
     mongodb: "databases",
     redis: "databases",
+    prismadrizzleorms: "databases",
     react: "frameworks",
     nextjs: "frameworks",
+    tailwindcss: "frameworks",
     express: "frameworks",
     nestjs: "frameworks",
     django: "frameworks",
@@ -98,7 +101,13 @@ export function calculateCategorizedLanguageStrengths({
         if (!totalBytes) continue;
 
         for (const [languageName, bytes] of Object.entries(languages)) {
-            const normalized = normalizeSkillName(languageName);
+            let normalized = normalizeSkillName(languageName);
+            
+            // Map HTML and CSS to the combined seeded skill
+            if (normalized === "html" || normalized === "css") {
+                normalized = normalizeSkillName("HTML & CSS");
+            }
+
             const weight = Math.max(bytes, 0) / totalBytes;
             const weightedContribution = repositoryImportance * weight;
 

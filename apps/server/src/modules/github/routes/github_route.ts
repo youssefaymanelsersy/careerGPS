@@ -14,17 +14,28 @@ export const githubRouter = router({
             }) 
         )
         .mutation(async ({ ctx, input }) => {
-            return syncGithubSkillsForUser({
+            const result = await syncGithubSkillsForUser({
                 userId: ctx.session.user.id,
                 githubUsername: input.username,
             });
+
+            if (ctx.session.user.roleId) {
+                const { evaluateUserForRole } = await import("@/modules/roles/service");
+                await evaluateUserForRole({
+                    userId: ctx.session.user.id,
+                    roleId: ctx.session.user.roleId,
+                });
+            }
+
+            return result;
         }),
 
     getStats: protectedProcedure
         .query(async ({ ctx }) => {
-            return db.query.githubStats.findFirst({
+            const stats = await db.query.githubStats.findFirst({
                 where: eq(githubStats.userId, ctx.session.user.id)
             });
+            return stats ?? null;
         }),
         
     getProjects: protectedProcedure

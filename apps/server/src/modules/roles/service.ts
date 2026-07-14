@@ -219,9 +219,9 @@ async function evaluateUserForRoleInternal({
         
     let finalScore = clamp(totalScore + bonusScore, 0, 100);
 
-    if (hasMissingCoreSkill) {
-        finalScore = clamp(finalScore, 0, 49);
-    }
+    // if (hasMissingCoreSkill) {
+    //     finalScore = clamp(finalScore, 0, 49);
+    // }
 
     const insertedReports = await db
         .insert(readinessReports)

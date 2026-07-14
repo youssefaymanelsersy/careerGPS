@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, boolean, numeric, primaryKey } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { user } from "../../user/db/schema";
 import { projects } from "../../github/db/schema"; 
 import { roleSkills, skillCurriculumNodes } from "@/db/schema";
@@ -11,6 +11,7 @@ export const skills = pgTable("skills", {
         .default(true)
         .notNull(),
     normalizedName: text("normalized_name").notNull().unique(),
+    githubKeywords: text("github_keywords").array().notNull().default(sql`'{}'::text[]`),
 });
 
 export const skillDependencies = pgTable(

@@ -145,6 +145,60 @@ export const rolesRouter = router({
                     message: "Failed to update user role",
                 });
             }
+
+            // Check if a roadmap already exists for this user+role
+            const { roadmaps, calendarEvents } = await import("@/db/schema");
+            const { and: andOp, eq: eqOp } = await import("drizzle-orm");
+            
+            // Set all existing roadmaps to inactive
+            await db.update(roadmaps)
+                .set({ isActive: false })
+                .where(eqOp(roadmaps.userId, ctx.session.user.id));
+
+            const existingRoadmap = await db.query.roadmaps.findFirst({
+                where: andOp(
+                    eqOp(roadmaps.userId, ctx.session.user.id),
+                    eqOp(roadmaps.roleId, input.roleId)
+                ),
+            });
+
+            // Generate a roadmap if one doesn't exist yet, or set it to active
+            if (!existingRoadmap) {
+                try {
+                    const { generateLearningRoadmap } = await import("@/modules/roadmap/service");
+                    await generateLearningRoadmap({
+                        userId: ctx.session.user.id,
+                        roleId: input.roleId,
+                    });
+                } catch (err) {
+                    console.error("Auto-roadmap generation failed:", err);
+                }
+            } else {
+                await db.update(roadmaps)
+                    .set({ isActive: true })
+                    .where(eqOp(roadmaps.id, existingRoadmap.id));
+            }
+
+            // Clear their scheduled calendar events so it reflects the new active roadmap
+            await db.delete(calendarEvents)
+                .where(
+                    andOp(
+                        eqOp(calendarEvents.userId, ctx.session.user.id),
+                        eqOp(calendarEvents.status, "scheduled")
+                    )
+                );
+
+            // Also re-evaluate readiness score for the new role
+            try {
+                const { evaluateUserForRole } = await import("@/modules/roles/service");
+                await evaluateUserForRole({
+                    userId: ctx.session.user.id,
+                    roleId: input.roleId,
+                });
+            } catch (err) {
+                console.error("Auto-evaluation failed:", err);
+            }
+
             return updated[0];
         }),
 
