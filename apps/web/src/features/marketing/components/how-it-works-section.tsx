@@ -1,46 +1,69 @@
-import React from 'react'
-import { Upload, Brain, Map } from 'lucide-react'
-import { Surface } from '@/components/ui/surface'
+import { TracingBeam } from "@/components/ui/tracing-beam";
+import { Upload, Brain, Map } from "lucide-react";
 
 const steps = [
   {
     icon: Upload,
-    title: 'Upload CV',
-    description: 'Drag and drop your current resume or LinkedIn profile.',
+    step: "01",
+    title: "Sync Your Profile",
+    description:
+      "Connect your GitHub and upload your CV. Our AI extracts every skill from your experience to build your baseline profile.",
   },
   {
     icon: Brain,
-    title: 'AI Extracts Skills',
-    description: 'Our engine maps your existing skills against industry demands.',
+    step: "02",
+    title: "AI Maps Your Path",
+    description:
+      "Our engine identifies skill gaps against your target role and generates a personalized learning roadmap with curated resources.",
   },
   {
     icon: Map,
-    title: 'Get Your Roadmap',
-    description: 'Start navigating your personalized skill tree to your next role.',
+    step: "03",
+    title: "Follow Your Roadmap",
+    description:
+      "Track your progress, schedule study sessions, take mock interviews, and use ATS tools to land your dream job.",
   },
-]
+];
 
 function HowItWorksSection() {
   return (
-    <section id="how-it-works" className='py-12'>
-       <h2 className="text-3xl font-bold text-center mb-12">
-          3 Simple Steps
+    <section id="how-it-works" className="relative py-20">
+      <div className="mb-16 text-center">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          How It Works
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {steps.map((step, index) => (
-            <Surface key={index} className="flex flex-col justify-center items-center gap-4">
-              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-                <step.icon className="size-6" />
+        <p className="mt-4 text-muted-foreground">
+          Three steps to transform your career trajectory
+        </p>
+      </div>
+
+      <TracingBeam className="px-6">
+        <div className="space-y-16">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <div key={index} className="flex items-start gap-6">
+                <div className="flex-shrink-0 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Icon className="size-6" />
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-mono text-primary/60">
+                      {step.step}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-muted-foreground leading-relaxed max-w-xl">
+                    {step.description}
+                  </p>
+                </div>
               </div>
-              <div className='text-center'>
-                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                <p className="text-muted-foreground">{step.description}</p>
-              </div>
-            </Surface>
-          ))}
+            );
+          })}
         </div>
+      </TracingBeam>
     </section>
-  )
+  );
 }
 
-export default HowItWorksSection
+export default HowItWorksSection;
