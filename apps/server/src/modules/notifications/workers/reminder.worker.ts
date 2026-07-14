@@ -5,6 +5,7 @@ import { dispatchNotification } from "../services/notifications.service";
 
 // 5-minute sweep
 export async function runReminderSweep() {
+    console.log(`[ReminderCron] ⏰ Triggered at ${new Date().toISOString()}`);
     try {
         // Atomic claim
         const result = await db.execute(sql`
@@ -30,6 +31,7 @@ export async function runReminderSweep() {
         `);
 
         const events = result.rows;
+        console.log(`[ReminderCron] 📅 Found ${events.length} due reminder(s)`);
         
         const dispatchPromises = events.map((event: any) => 
             dispatchNotification({
@@ -64,6 +66,7 @@ export async function runReminderSweep() {
         `);
 
         const riskEvents = riskResult.rows;
+        console.log(`[ReminderCron] 🔥 Found ${riskEvents.length} streak-at-risk event(s)`);
 
         const riskPromises = riskEvents.map(async (event: any) => {
             await dispatchNotification({
@@ -77,8 +80,9 @@ export async function runReminderSweep() {
         });
 
         await Promise.all(riskPromises);
+        console.log(`[ReminderCron] ✅ Sweep complete`);
     } catch (error) {
-        console.error("Failed to run reminder cron sweep", error);
+        console.error("[ReminderCron] ❌ Failed to run reminder cron sweep", error);
     }
 }
 
