@@ -12,7 +12,7 @@ interface UseOptimizeCvResult {
   error: Error | null;
 }
 
-const API_URL = import.meta.env.VITE_AI_MICROSERVICE_URL;
+const API_URL = import.meta.env.VITE_SERVER_URL;
 
 export function useOptimizeCv(): UseOptimizeCvResult {
   const [isLoading, setIsLoading] = useState(false);
@@ -41,9 +41,10 @@ export function useOptimizeCv(): UseOptimizeCvResult {
       }
       formData.append("design_preference", designPreference);
 
-      const response = await fetch(`${API_URL}/optimize`, {
+      const response = await fetch(`${API_URL}/cv/optimize`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!response.ok) {

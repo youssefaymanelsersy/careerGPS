@@ -61,6 +61,7 @@ export interface ParsedCVData {
   certifications: Certification[];
   languages: string[];
   links: Links;
+  spacing?: Record<string, number>;
 }
 
 export interface OptimizationMeta {
