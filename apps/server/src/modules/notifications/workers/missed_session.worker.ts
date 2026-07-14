@@ -8,9 +8,11 @@ import { dispatchNotification } from "../services/notifications.service";
 export async function runMissedSessionSweep() {
     try {
         const overdueSessions = await db.execute(sql`
-            SELECT ce.*
+            SELECT ce.*, r.title as roadmap_title
             FROM calendar_events ce
             LEFT JOIN missed_session_alerts msa ON msa.event_id = ce.id
+            LEFT JOIN roadmap_nodes rn ON rn.id = ce.roadmap_node_id
+            LEFT JOIN roadmaps r ON r.id = rn.roadmap_id
             WHERE ce.status = 'scheduled'
               AND msa.event_id IS NULL
               AND (
@@ -30,12 +32,17 @@ export async function runMissedSessionSweep() {
 
         const dispatchPromises = Object.entries(byUser).map(async ([userId, userSessions]) => {
             const sessionsArray = userSessions as any[];
+            const uniqueTitles = Array.from(new Set(sessionsArray.map(s => s.roadmap_title).filter(Boolean)));
+            
             // Dispatch the actual batched notification
             await dispatchNotification({
                 userId,
                 type: "session_missed",
                 channels: ["in_app", "email", "push"],
-                payload: { missedCount: sessionsArray.length }
+                payload: { 
+                    missedCount: sessionsArray.length,
+                    roadmapTitles: uniqueTitles.length > 0 ? uniqueTitles : undefined
+                }
             });
 
             // Mark these specific sessions as notified to prevent double-sends in dedicated table
@@ -44,7 +51,7 @@ export async function runMissedSessionSweep() {
                     userId,
                     eventId: session.id,
                     alertedAt: new Date()
-                })
+                }).onConflictDoNothing()
             );
             await Promise.all(trackPromises);
         });

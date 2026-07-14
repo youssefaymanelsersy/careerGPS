@@ -5,14 +5,17 @@ import { eq, and, sql, gte } from "drizzle-orm";
 import { notificationTypeEnum, notificationCategoryEnum } from "../db/schema";
 import webpush from "web-push";
 import { Resend } from "resend";
+import { NotificationEmail, getNotificationSubject } from "@careergps/emails";
 
-const resend = new Resend(process.env.RESEND_API_KEY || "dummy_key");
+import { env } from "@careergps/env/server";
 
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+const resend = new Resend(env.RESEND_API_KEY);
+
+if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
-        "mailto:support@careergps.example",
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-        process.env.VAPID_PRIVATE_KEY
+        "mailto:notifications@careergps.space",
+        env.VAPID_PUBLIC_KEY,
+        env.VAPID_PRIVATE_KEY
     );
 }
 
@@ -137,12 +140,12 @@ export async function dispatchNotification({
         }).returning();
 
         if (inserted && userRecord.email) {
-            // Replace with actual react-email component import
+            const subject = getNotificationSubject(type, payload);
             resend.emails.send({
                 from: "CareerGPS <notifications@updates.careergps.space>",
                 to: [userRecord.email],
-                subject: "CareerGPS Update",
-                html: `<p>You have a new notification of type: ${type}</p>`
+                subject,
+                react: NotificationEmail({ type, payload })
             }).catch(console.error);
         }
     }

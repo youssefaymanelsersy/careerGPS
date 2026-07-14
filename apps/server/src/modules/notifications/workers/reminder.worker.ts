@@ -8,19 +8,25 @@ export async function runReminderSweep() {
     try {
         // Atomic claim
         const result = await db.execute(sql`
-            UPDATE calendar_events
-            SET reminder_sent_at = now()
-            WHERE id IN (
-                SELECT id FROM calendar_events
-                WHERE status = 'scheduled'
-                AND reminder_sent_at IS NULL
-                AND reminder_at <= now()
-                AND reminder_at > now() - interval '10 minutes'
-                ORDER BY reminder_at
-                LIMIT 200
-                FOR UPDATE SKIP LOCKED
+            WITH updated AS (
+                UPDATE calendar_events
+                SET reminder_sent_at = now()
+                WHERE id IN (
+                    SELECT id FROM calendar_events
+                    WHERE status = 'scheduled'
+                    AND reminder_sent_at IS NULL
+                    AND reminder_at <= now()
+                    AND reminder_at > now() - interval '10 minutes'
+                    ORDER BY reminder_at
+                    LIMIT 200
+                    FOR UPDATE SKIP LOCKED
+                )
+                RETURNING id, user_id, roadmap_node_id, date, start_time
             )
-            RETURNING id, user_id, roadmap_node_id, date, start_time;
+            SELECT u.id, u.user_id, u.date, u.start_time, r.title as roadmap_title
+            FROM updated u
+            LEFT JOIN roadmap_nodes rn ON rn.id = u.roadmap_node_id
+            LEFT JOIN roadmaps r ON r.id = rn.roadmap_id;
         `);
 
         const events = result.rows;
@@ -29,12 +35,13 @@ export async function runReminderSweep() {
             dispatchNotification({
                 userId: event.user_id,
                 type: "session_reminder",
-                channels: ["in_app", "push"],
+                channels: ["in_app", "push", "email"],
                 relatedEntityType: "calendar_event",
                 relatedEntityId: event.id,
                 payload: {
                     date: event.date,
-                    startTime: event.start_time
+                    startTime: event.start_time,
+                    roadmapTitle: event.roadmap_title
                 }
             })
         );
