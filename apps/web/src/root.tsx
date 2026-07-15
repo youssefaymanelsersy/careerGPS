@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import "./index.css";
 import {
   isRouteErrorResponse,
@@ -46,6 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <TooltipProvider>{children}</TooltipProvider>
         </ThemeProvider>
         <Analytics />
+        <SpeedInsights />
         <ScrollRestoration />
         <Scripts />
       </body>
