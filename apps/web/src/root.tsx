@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@/components/theme-provider"
+import { Analytics } from "@vercel/analytics/react";
 import "./index.css";
 import {
   isRouteErrorResponse,
@@ -44,6 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
           <TooltipProvider>{children}</TooltipProvider>
         </ThemeProvider>
+        <Analytics />
         <ScrollRestoration />
         <Scripts />
       </body>
