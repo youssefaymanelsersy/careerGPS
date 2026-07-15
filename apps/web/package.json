@@ -23,6 +23,7 @@
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "^11.7.2",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@zxcvbn-ts/core": "^3.0.4",
     "@zxcvbn-ts/language-common": "^3.0.4",
     "@zxcvbn-ts/language-en": "^3.0.2",
