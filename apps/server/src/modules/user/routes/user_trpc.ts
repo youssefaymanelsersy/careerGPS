@@ -1,8 +1,8 @@
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db";
 import { user, roadmaps, roles, cv, session, account } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { z } from "zod";
 import { deleteFromCloudinary } from "@/shared/storage/cloudinary";
 
@@ -21,32 +21,30 @@ export const userRouter = router({
             return userInfo;
         }),
 
-    setAvailability : protectedProcedure
-    .input(
-        z.object({
+    setAvailability: protectedProcedure
+        .input(z.object({
             availableDaysPerWeek: z.number().min(1).max(7).optional(),
             availableHoursPerDay: z.number().min(1).max(24).optional(),
             availableWeekdays: z.array(z.number().min(0).max(6)).optional(),
             preferredStartTime: z.string().optional(),
             timezone: z.string().optional(),
-        })
-    )
-    .mutation(async ({input , ctx}) => {
-        const userId = ctx.session.user.id;
-        const { availableDaysPerWeek, availableHoursPerDay, availableWeekdays, preferredStartTime, timezone } = input;
+        }))
+        .mutation(async ({ input, ctx }) => {
+            const userId = ctx.session.user.id;
+            const { availableDaysPerWeek, availableHoursPerDay, availableWeekdays, preferredStartTime, timezone } = input;
 
-        const [updatedUser] = await db
-          .update(user)
-          .set({ availableDaysPerWeek, availableHoursPerDay, availableWeekdays, preferredStartTime, timezone })
-          .where(eq(user.id, userId))
-          .returning();
+            const [updatedUser] = await db
+                .update(user)
+                .set({ availableDaysPerWeek, availableHoursPerDay, availableWeekdays, preferredStartTime, timezone })
+                .where(eq(user.id, userId))
+                .returning();
 
-        if (!updatedUser) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-        }
+            if (!updatedUser) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+            }
 
-        return updatedUser;
-    }),
+            return updatedUser;
+        }),
 
     getUserRoleInfo: protectedProcedure
         .query(async ({ ctx }) => {
@@ -134,5 +132,60 @@ export const userRouter = router({
             await db.delete(user).where(eq(user.id, userId));
 
             return { success: true };
-        })
+        }),
+
+    getAllUsers: adminProcedure
+        .input(z.object({
+            limit: z.number().min(1).max(100).default(50),
+            page: z.number().min(1).default(1),
+        }).default({ limit: 50, page: 1 }))
+        .query(async ({ input }) => {
+            const { limit, page } = input;
+            const offset = (page - 1) * limit;
+
+            const [users, totalCountRes] = await Promise.all([
+                db.query.user.findMany({
+                    limit,
+                    offset,
+                    columns: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        systemRole: true,
+                        createdAt: true,
+                    }
+                }),
+                db.select({ count: count() }).from(user)
+            ]);
+
+            const totalCount = Number(totalCountRes[0]!.count);
+            const totalPages = Math.ceil(totalCount / limit);
+
+            return {
+                users,
+                pagination: {
+                    totalCount,
+                    totalPages,
+                    currentPage: page,
+                    limit,
+                }
+            };
+        }),
+
+    updateUserRole: adminProcedure
+        .input(z.object({
+            userId: z.string(),
+            newRole: z.enum(["admin", "user"])
+        }))
+        .mutation(async ({ input, ctx }) => {
+            if (input.userId === ctx.session.user.id) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot change your own role." });
+            }
+            
+            await db.update(user)
+                .set({ systemRole: input.newRole })
+                .where(eq(user.id, input.userId));
+                
+            return { success: true };
+        }),
 });
