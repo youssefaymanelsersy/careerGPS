@@ -1,33 +1,20 @@
 import express from "express";
 import { Router } from "express";
 import { upload } from "../multer";
-import { auth } from "@/shared/auth/auth";
-import { fromNodeHeaders } from "better-auth/node";
+import { requireVerifiedAuth } from "@/shared/auth/middlewares";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/shared/storage/cloudinary";
 import { responseBodySchema } from '../parsedCv_schema';
 import { eq } from "drizzle-orm"
 import { db } from "@/db";
-import { cv } from "@/db/schema";
+import { cv, skills } from "@/db/schema";
 import { randomUUID, type UUID } from "crypto";
 import { parseCVData } from "../cv-parser";
 import { env } from "@careergps/env/server";
+import { normalizeSkillName } from "@/modules/github/utils";
 
 const router: Router = express.Router();
 
-async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
-  try {
-    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
-
-    if (!session?.user?.id) return res.status(401).json({ error: "Unauthorized" });
-
-    (req as any).session = session;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-}
-
-router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
+router.post("/parse", requireVerifiedAuth, upload.single("file"), async (req, res) => {
 
   const file = req.file as Express.Multer.File;
   if (!file) return res.status(400).json({ error: "No file uploaded" });
@@ -94,25 +81,40 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
         mimeType: file.mimetype,
         status: "completed" ,
         parsedData: parsedData ?? null,
-
       });
 
-      return res.status(200).json({
-        cvId: id,
-        status,
-        "skills": technical.map((skill) => {
-          let strength = 50; // Default solid strength if they list it on their CV
+      const allSkills = await db.select().from(skills);
+      const skillsByNormalizedName = new Map<string, Array<typeof allSkills[0]>>();
+      for (const skill of allSkills) {
+          const key = normalizeSkillName(skill.name);
+          const bucket = skillsByNormalizedName.get(key) ?? [];
+          bucket.push(skill);
+          skillsByNormalizedName.set(key, bucket);
+      }
+
+      const validSkills = [];
+      for (const skill of technical) {
+        const normalized = normalizeSkillName(skill.name);
+        const matched = skillsByNormalizedName.get(normalized);
+        if (matched && matched.length > 0) {
+          let strength = 50;
           if (skill.level) {
             const l = skill.level.toLowerCase();
             if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 75;
             else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 50;
             else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 25;
           }
-          return {
-            "skillName": skill.name,
+          validSkills.push({
+            "skillName": matched[0]!.name,
             "strength": strength,
-          };
-        }),
+          });
+        }
+      }
+
+      return res.status(200).json({
+        cvId: id,
+        status,
+        "skills": validSkills,
       });
 
     } else if (status === "failed") {
@@ -151,7 +153,7 @@ router.post("/parse", requireAuth, upload.single("file"), async (req, res) => {
 
 });
 
-router.post("/optimize", requireAuth, upload.single("cv_file"), async (req, res) => {
+router.post("/optimize", requireVerifiedAuth, upload.single("cv_file"), async (req, res) => {
   try {
     const file = req.file;
     const cvData = req.body.cv_data;

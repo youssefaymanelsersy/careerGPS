@@ -38,7 +38,9 @@ export const VerificationEmail = ({ type, url }: VerificationEmailProps) => {
       <Head>
         <style>
           {`
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            body {
+              background-color: #ffffff;
+            }
           `}
         </style>
       </Head>

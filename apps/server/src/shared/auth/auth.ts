@@ -14,7 +14,7 @@ export const auth = betterAuth({
   trustedOrigins: [env.CORS_ORIGIN],
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: false,
     sendResetPassword: async (data) => {
         const { Resend } = await import("resend");
         const resend = new Resend(env.RESEND_API_KEY);
@@ -56,6 +56,11 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
+      systemRole: {
+        type: "string",
+        required: false,
+        defaultValue: "user",
+      },
       roleId: {
         type: "string",
         required: false,
@@ -84,6 +89,26 @@ export const auth = betterAuth({
         type: "boolean",
         required: false,
       },
+    }
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          const adminEmailsStr = process.env.ADMIN_EMAILS || "";
+          const adminEmails = adminEmailsStr.split(",").map(e => e.trim().toLowerCase());
+          
+          if (adminEmails.includes(user.email.toLowerCase())) {
+            return {
+              data: {
+                ...user,
+                systemRole: "admin"
+              }
+            };
+          }
+          return { data: user };
+        }
+      }
     }
   },
   plugins: [],
