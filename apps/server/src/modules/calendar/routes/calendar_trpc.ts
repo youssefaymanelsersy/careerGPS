@@ -1,4 +1,6 @@
 import { router, protectedProcedure } from "@/trpc/index";
+import { TRPCError } from "@trpc/server";
+import { formatInTimeZone } from "date-fns-tz";
 import { z } from "zod";
 import { generateCalendar } from "../services/generator";
 import { db } from "@/db";
@@ -53,6 +55,22 @@ async function fireScheduleEmptyIfNeeded(userId: string, needsNewSchedule: boole
 }
 
 export const calendarRouter = router({
+    getSyncToken: protectedProcedure.query(async ({ ctx }) => {
+        const userRecord = await db.query.user.findFirst({
+            where: eq(user.id, ctx.session.user.id),
+            columns: { calendarSyncToken: true }
+        });
+        
+        if (!userRecord || !userRecord.calendarSyncToken) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Sync token not found" });
+        }
+
+        return {
+            token: userRecord.calendarSyncToken,
+            // Assuming env.SERVER_URL is available, otherwise we just return the token
+        };
+    }),
+
     generate: protectedProcedure.mutation(async ({ ctx }) => {
         const events = await generateCalendar(ctx.session.user.id);
         
@@ -79,8 +97,12 @@ export const calendarRouter = router({
             to: z.string().optional(),
         }).optional().default({}))
         .query(async ({ ctx, input }) => {
-            const today = new Date().toISOString().split("T")[0] || "";
-            
+            const userData = await db.query.user.findFirst({
+                where: eq(user.id, ctx.session.user.id),
+                columns: { availableHoursPerDay: true, timezone: true }
+            });
+            const timeZone = userData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const today = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
             // Build where clause
             const conditions = [eq(calendarEvents.userId, ctx.session.user.id)];
             if (input.from) {
@@ -118,10 +140,6 @@ export const calendarRouter = router({
             await settleStreak(ctx.session.user.id, today, false);
             await fireScheduleEmptyIfNeeded(ctx.session.user.id, needsNewSchedule);
 
-            const userData = await db.query.user.findFirst({
-                where: eq(user.id, ctx.session.user.id),
-                columns: { availableHoursPerDay: true }
-            });
             const availableHoursPerDay = userData?.availableHoursPerDay ?? 2;
 
             return {
@@ -132,7 +150,12 @@ export const calendarRouter = router({
         }),
 
     getToday: protectedProcedure.query(async ({ ctx }) => {
-        const today = new Date().toISOString().split("T")[0] || "";
+        const userData = await db.query.user.findFirst({
+            where: eq(user.id, ctx.session.user.id),
+            columns: { availableHoursPerDay: true, timezone: true }
+        });
+        const timeZone = userData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const today = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
 
         const events = await db
             .select({
@@ -162,10 +185,6 @@ export const calendarRouter = router({
         await settleStreak(ctx.session.user.id, today, false);
         await fireScheduleEmptyIfNeeded(ctx.session.user.id, needsNewSchedule);
 
-        const userData = await db.query.user.findFirst({
-            where: eq(user.id, ctx.session.user.id),
-            columns: { availableHoursPerDay: true }
-        });
         const availableHoursPerDay = userData?.availableHoursPerDay ?? 2;
 
         return {
@@ -191,7 +210,28 @@ export const calendarRouter = router({
                 where: and(eq(calendarEvents.id, eventId), eq(calendarEvents.userId, ctx.session.user.id))
             });
 
-            if (!event) throw new Error("Event not found or unauthorized");
+            if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Event not found or unauthorized" });
+
+            if (event.status === "completed" && (updates.date || updates.startTime || updates.endTime)) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot move a completed task." });
+            }
+
+            if (updates.date || updates.status === "completed") {
+                const userData = await db.query.user.findFirst({
+                    where: eq(user.id, ctx.session.user.id),
+                    columns: { timezone: true }
+                });
+                const timeZone = userData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const today = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
+
+                if (updates.date && updates.date < today) {
+                    throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot schedule a task in the past." });
+                }
+
+                if (updates.status === "completed" && event.date > today) {
+                    (updates as any).date = today;
+                }
+            }
 
             if (updates.date || updates.startTime || updates.endTime) {
                 const newDate = updates.date ?? event.date;
@@ -251,7 +291,7 @@ export const calendarRouter = router({
                 }
 
                 if (updates.status === "completed") {
-                    const todayStr = new Date().toISOString().split("T")[0];
+                    const todayStr = new Date().toISOString().split("T")[0]!;
                     await settleStreak(ctx.session.user.id, todayStr, true);
                 }
             }

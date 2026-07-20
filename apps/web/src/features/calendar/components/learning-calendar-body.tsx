@@ -188,8 +188,12 @@ export function LearningCalendarBody({
                 {dayEvents!.slice(0, 3).map((ev) => (
                   <div
                     key={ev.event.id}
-                    draggable
+                    draggable={ev.event.status !== "completed"}
                     onDragStart={(e) => {
+                      if (ev.event.status === "completed") {
+                        e.preventDefault();
+                        return;
+                      }
                       e.dataTransfer.setData("text/plain", ev.event.id);
                     }}
                     onClick={(e) => {
@@ -197,7 +201,8 @@ export function LearningCalendarBody({
                       onDayClick(parseInt(ev.event.date.split('-')[2], 10));
                     }}
                     className={cn(
-                      "truncate rounded px-1.5 py-0.5 text-[10px] cursor-grab active:cursor-grabbing",
+                      "truncate rounded px-1.5 py-0.5 text-[10px]",
+                      ev.event.status !== "completed" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                       ev.event.status === "completed" ? "bg-primary/20 text-primary" : 
                       ev.event.status === "skipped" ? "bg-muted text-muted-foreground" : 
                       "bg-primary text-primary-foreground"

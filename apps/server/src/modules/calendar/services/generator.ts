@@ -3,7 +3,9 @@ import { user } from "../../user/db/schema";
 import { roadmapNodes, roadmaps } from "../../roadmap/db/schema";
 import { skillCurriculumNodes } from "../../skills/db/curriculum_schema";
 import { calendarEvents } from "../db/schema";
-import { eq, and, asc, inArray } from "drizzle-orm";
+import { eq, and, asc, inArray, gte } from "drizzle-orm";
+import { format, parse, add } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 const DEFAULT_START_TIME = "18:00:00";
 
@@ -17,21 +19,10 @@ const WEEKDAY_MAP: Record<number, number[]> = {
     7: [0, 1, 2, 3, 4, 5, 6], // Sun-Sat (0 is Sunday in JS Date)
 };
 
-function formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
 function addHoursToTime(timeStr: string, hoursToAdd: number): string {
-    const parts = timeStr.split(":");
-    let hours = parseInt(parts[0] || "0", 10) || 0;
-    const minutes = parseInt(parts[1] || "0", 10) || 0;
-    const seconds = parseInt(parts[2] || "0", 10) || 0;
-    
-    hours = (hours + hoursToAdd) % 24;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const parsedTime = parse(timeStr, "HH:mm:ss", new Date(0));
+    const newTime = add(parsedTime, { minutes: Math.round(hoursToAdd * 60) });
+    return format(newTime, "HH:mm:ss");
 }
 
 export async function generateCalendar(userId: string) {
@@ -55,10 +46,11 @@ export async function generateCalendar(userId: string) {
 
     if (!activeRoadmap) return []; 
 
-    const now = new Date();
-    const windowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at 00:00:00
-    const windowEnd = new Date(windowStart);
-    windowEnd.setDate(windowStart.getDate() + 13); // +13 days = 14 days window
+    const timeZone = userData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const todayStr = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
+
+    // Parse "YYYY-MM-DD" as UTC noon to safely add days without timezone/DST shifts
+    const windowStart = new Date(`${todayStr}T12:00:00Z`);
 
     const availableWeekdays = userData.availableWeekdays && userData.availableWeekdays.length > 0 
         ? userData.availableWeekdays 
@@ -89,19 +81,21 @@ export async function generateCalendar(userId: string) {
         )
         .orderBy(asc(roadmapNodes.orderIndex));
 
-    let candidateDates = [];
+    let candidateDates: string[] = [];
     for (let i = 0; i <= 13; i++) {
         const d = new Date(windowStart);
-        d.setDate(windowStart.getDate() + i);
-        if (availableWeekdays && availableWeekdays.includes(d.getDay())) {
-            candidateDates.push(formatDate(d));
+        d.setUTCDate(windowStart.getUTCDate() + i);
+        if (availableWeekdays && availableWeekdays.includes(d.getUTCDay())) {
+            candidateDates.push(d.toISOString().split('T')[0]!);
         }
     }
 
-    const existingEvents = await db
+    const existingEventsForUnfinished = await db
         .select({
             roadmapNodeId: calendarEvents.roadmapNodeId,
             sessionIndex: calendarEvents.sessionIndex,
+            startTime: calendarEvents.startTime,
+            endTime: calendarEvents.endTime,
         })
         .from(calendarEvents)
         .where(
@@ -112,30 +106,68 @@ export async function generateCalendar(userId: string) {
         );
 
     const maxSessionIndexMap = new Map<string, number>();
-    for (const e of existingEvents) {
+    const completedDurationMap = new Map<string, number>();
+
+    for (const e of existingEventsForUnfinished) {
         const current = maxSessionIndexMap.get(e.roadmapNodeId) || 0;
         if (e.sessionIndex > current) {
             maxSessionIndexMap.set(e.roadmapNodeId, e.sessionIndex);
         }
+        
+        const currentDuration = completedDurationMap.get(e.roadmapNodeId) || 0;
+        const start = new Date(`1970-01-01T${e.startTime}Z`);
+        const end = new Date(`1970-01-01T${e.endTime}Z`);
+        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        completedDurationMap.set(e.roadmapNodeId, currentDuration + durationHours);
+    }
+
+    // Get all events from today onwards to calculate already used hours per day
+    const futureOrTodayEvents = await db
+        .select({
+            date: calendarEvents.date,
+            startTime: calendarEvents.startTime,
+            endTime: calendarEvents.endTime,
+        })
+        .from(calendarEvents)
+        .where(
+            and(
+                eq(calendarEvents.userId, userId),
+                gte(calendarEvents.date, todayStr!)
+            )
+        );
+
+    const dateHoursUsedMap = new Map<string, number>();
+    for (const e of futureOrTodayEvents) {
+        if (!e.date) continue;
+        const start = new Date(`1970-01-01T${e.startTime}Z`);
+        const end = new Date(`1970-01-01T${e.endTime}Z`);
+        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        const current = dateHoursUsedMap.get(e.date) || 0;
+        dateHoursUsedMap.set(e.date, current + durationHours);
     }
 
     const eventsToCreate: typeof calendarEvents.$inferInsert[] = [];
     let dateIndex = 0;
-    let hoursUsedToday = 0;
+    let hoursUsedToday = dateHoursUsedMap.get(candidateDates[dateIndex] || "") || 0;
 
     for (const node of unfinishedNodes) {
-        let remainingDuration = node.estimatedDurationHours || 2;
+        const completedHours = completedDurationMap.get(node.id) || 0;
+        let remainingDuration = Math.max(0, (node.estimatedDurationHours || 2) - completedHours);
+        
+        if (remainingDuration <= 0) continue;
+
         let sessionIndex = (maxSessionIndexMap.get(node.id) || 0) + 1;
-        const totalSessionsForNode = Math.ceil(remainingDuration / hoursPerDay);
+        const totalSessionsForNode = Math.ceil((node.estimatedDurationHours || 2) / hoursPerDay);
 
         while (remainingDuration > 0) {
             if (dateIndex >= candidateDates.length) break;
 
-            if (hoursUsedToday >= hoursPerDay) {
+            while (hoursUsedToday >= hoursPerDay) {
                 dateIndex++;
-                hoursUsedToday = 0;
+                hoursUsedToday = dateHoursUsedMap.get(candidateDates[dateIndex] || "") || 0;
                 if (dateIndex >= candidateDates.length) break;
             }
+            if (dateIndex >= candidateDates.length) break;
 
             const date = candidateDates[dateIndex] || "";
             const sessionDuration = Math.min(remainingDuration, hoursPerDay - hoursUsedToday);

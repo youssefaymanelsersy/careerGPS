@@ -37,6 +37,7 @@ import {
 import { CalendarSetup } from "./calendar-setup";
 import { LearningCalendarBody } from "./learning-calendar-body";
 import { TimeSlotEditor } from "./time-slot-editor";
+import { CalendarSyncModal } from "./calendar-sync-modal";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMemo } from "react";
@@ -110,7 +111,7 @@ export function CalendarInner() {
 
   const handleBatchSaveTimes = async () => {
     if (!selectedDayEvents) return;
-    
+
     for (const ev of selectedDayEvents) {
       if (ev.event.status !== "scheduled") continue;
       const times = editingTimes[ev.event.id];
@@ -172,6 +173,15 @@ export function CalendarInner() {
 
   const handleMarkStatus = (eventId: string, status: "completed" | "scheduled" | "skipped") => {
     updateEvent.mutate({ eventId, status });
+    setSelectedDayEvents(prev => {
+      if (!prev) return prev;
+      return prev.map(e => {
+        if (e.event.id === eventId) {
+          return { ...e, event: { ...e.event, status } };
+        }
+        return e;
+      });
+    });
   };
 
   const handleEditEvent = (eventWithDetails: any) => {
@@ -237,6 +247,7 @@ export function CalendarInner() {
                 <TabsTrigger value="month" className="text-xs px-3 py-1">Month</TabsTrigger>
               </TabsList>
             </Tabs>
+            <CalendarSyncModal />
             <Button
               variant="outline"
               size="sm"
@@ -257,6 +268,24 @@ export function CalendarInner() {
         </div>
       </CalendarDate>
 
+      {needsNewSchedule && (
+        <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-md flex items-center justify-between mb-4 shadow-sm">
+          <div className="flex flex-col">
+            <span className="font-semibold text-sm">You're ahead of schedule! 🎉</span>
+            <span className="text-xs opacity-90">Your calendar is looking a bit empty. Ready to pull in the next topics?</span>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleRegenerate}
+            disabled={generateCalendar.isPending}
+            className="shrink-0 shadow-sm"
+          >
+            <RefreshCwIcon className={`size-4 mr-2 ${generateCalendar.isPending ? "animate-spin" : ""}`} />
+            Generate Next Tasks
+          </Button>
+        </div>
+      )}
+
       <CalendarHeader />
 
       <LearningCalendarBody
@@ -268,17 +297,28 @@ export function CalendarInner() {
           const droppedEvent = events.find(e => e.event.id === eventId);
           if (!droppedEvent) return;
 
-          const todayStr = new Date().toISOString().split("T")[0];
+          const today = new Date();
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
           const targetDateObj = new Date(date);
           const todayObj = new Date(todayStr);
           const twoWeeksFromToday = new Date(todayObj.getTime() + 14 * 24 * 60 * 60 * 1000);
           
-          if (targetDateObj < todayObj || targetDateObj > twoWeeksFromToday) {
+          if (droppedEvent.event.status === "completed") {
+            toast.error("You cannot move a completed task.", { position: "top-center" });
+            return;
+          }
+
+          if (date < todayStr) {
+            toast.error("You cannot move tasks to the past.", { position: "top-center" });
+            return;
+          }
+
+          if (targetDateObj > twoWeeksFromToday) {
             toast.error("You can only reschedule events within the upcoming 2 weeks.", { position: "top-center" });
             return;
           }
 
-          const targetDayEvents = events.filter(e => e.event.date === date && e.event.id !== eventId);
+          const targetDayEvents = events.filter(e => e.event.date === date && e.event.id !== eventId && e.event.status !== "completed" && e.event.status !== "skipped");
           const currentDayMinutes = targetDayEvents.reduce((acc, e) => acc + timeToMinutes(e.event.endTime) - timeToMinutes(e.event.startTime), 0);
           const droppedEventMinutes = timeToMinutes(droppedEvent.event.endTime) - timeToMinutes(droppedEvent.event.startTime);
           const availableHours = (calendarData as any)?.availableHoursPerDay ?? 2;
@@ -458,6 +498,7 @@ export function CalendarInner() {
             </div>
           </div>
           <DialogFooter>
+            {/* @ts-expect-error - asChild type clash */}
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
