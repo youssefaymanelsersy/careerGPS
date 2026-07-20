@@ -36,3 +36,27 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     },
   });
 });
+
+export const verifiedProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.session.user.emailVerified) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Email verification required to access this feature",
+      cause: "Unverified email",
+    });
+  }
+  return next({ ctx });
+});
+
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  // Check if user role is admin. By default it's "user"
+  const userRole = (ctx.session.user as any).systemRole;
+  if (userRole !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Admin privileges required to access this feature",
+      cause: "Not an admin",
+    });
+  }
+  return next({ ctx });
+});

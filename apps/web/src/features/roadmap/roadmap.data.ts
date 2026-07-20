@@ -19,6 +19,7 @@ export interface ApiRoadmapNode {
   curriculumTitle: string;
   skillName: string;
   skillId?: string; // Add this to TRPC backend to group inProgress nodes correctly
+  estimatedDurationHours?: number;
 }
 
 // Frontend wrapper (kept simple since ApiRoadmapNode now handles the core structure)

@@ -1,4 +1,4 @@
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, verifiedProcedure } from "@/trpc/index";
 import { parseCVData } from "../cv-parser";
 import { responseBodySchema } from "../parsedCv_schema";
 import { TRPCError } from "@trpc/server";
@@ -131,7 +131,7 @@ export const cvRouter = router({
       return { success: true };
     }),
 
-  reparseCV: protectedProcedure
+  reparseCV: verifiedProcedure
     .input(z.object({ cvId: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const rows = await db
@@ -161,35 +161,6 @@ export const cvRouter = router({
             parsedData: cvData.parsedData ?? null,
             errorMessage: null
           }).where(eq(cv.id, userCV.id));
-
-          if (ctx.session.user.roleId) {
-            const { evaluateUserForRole } = await import("@/modules/roles/service");
-            const { addManualSkill } = await import("@/modules/skills/service");
-            
-            // Sync new CV skills to database BEFORE evaluating
-            if (cvData.parsedData?.skills?.technical) {
-                for (const skill of cvData.parsedData.skills.technical) {
-                    let strength = 50;
-                    if (skill.level) {
-                        const l = skill.level.toLowerCase();
-                        if (l.includes("expert") || l.includes("advanced") || l.includes("senior") || l.includes("fluent") || l.includes("proficient")) strength = 75;
-                        else if (l.includes("intermediate") || l.includes("mid") || l.includes("working")) strength = 50;
-                        else if (l.includes("beginner") || l.includes("junior") || l.includes("basic") || l.includes("novice") || l.includes("familiar")) strength = 25;
-                    }
-                    
-                    await addManualSkill({
-                        userId: ctx.session.user.id,
-                        skillName: skill.name,
-                        strength: strength
-                    });
-                }
-            }
-
-            await evaluateUserForRole({
-                userId: ctx.session.user.id,
-                roleId: ctx.session.user.roleId,
-            });
-          }
 
           return { success: true, parsedData: cvData.parsedData };
         } else if (cvData.status === "failed") {

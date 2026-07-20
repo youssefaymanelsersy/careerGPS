@@ -10,6 +10,7 @@ export const user = pgTable("user", {
     emailVerified: boolean("email_verified").default(false).notNull(),
     image: text("image"),
     isOnboarded: boolean("is_onboarded").default(false).notNull(),
+    systemRole: text("system_role").notNull().default("user"),
     roleId: uuid("role_id")
         .references(() => roles.id, { onDelete: "set null" }),
     availableDaysPerWeek: integer("available_days_per_week"),
@@ -18,6 +19,7 @@ export const user = pgTable("user", {
     timezone: text("timezone"),
     preferredStartTime: time("preferred_start_time"),
     lastSeenAt: timestamp("last_seen_at"),
+    calendarSyncToken: uuid("calendar_sync_token").defaultRandom().unique(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

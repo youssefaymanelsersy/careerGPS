@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { usageTracker } from "./db/schema";
+import { user } from "@/db/schema";
 
 const MAX_DAILY_USES = 1;
 
@@ -24,6 +25,14 @@ export async function checkDailyQuota(userId: string, feature: string): Promise<
       eq(usageTracker.date, today),
     ),
   });
+
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+  });
+
+  if (currentUser?.systemRole === "admin") {
+    return;
+  }
 
   if (existing && existing.usesCount >= MAX_DAILY_USES) {
     const tomorrow = getTomorrowStart();
@@ -78,6 +87,14 @@ export async function getRemainingDailyQuota(
 
   if (!existing) {
     return { remaining: MAX_DAILY_USES, resetsOn };
+  }
+
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+  });
+
+  if (currentUser?.systemRole === "admin") {
+    return { remaining: 9999, resetsOn };
   }
 
   const remaining = Math.max(0, MAX_DAILY_USES - existing.usesCount);

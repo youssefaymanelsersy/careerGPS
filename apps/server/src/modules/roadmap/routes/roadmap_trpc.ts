@@ -3,9 +3,9 @@ import {
     completeRoadmapNode,
     generateLearningRoadmap,
 } from "@/modules/roadmap/service";
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { db } from "@/db";
-import { roadmaps, roadmapNodes, skillCurriculumNodes } from "@/db/schema";
+import { roadmaps, roadmapNodes, skillCurriculumNodes, calendarEvents } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
@@ -32,6 +32,30 @@ export const roadmapRouter = router({
                 nodes: result.nodes,
                 skillsMissingCurriculum: result.skillsMissingCurriculum
             };
+        }),
+
+    syncAll: protectedProcedure
+        .mutation(async ({ ctx }) => {
+            const { syncAllUserRoadmaps } = await import("@/modules/roadmap/service");
+            await syncAllUserRoadmaps(ctx.session.user.id);
+            return { success: true };
+        }),
+
+    syncGlobalRoadmaps: adminProcedure
+        .mutation(async () => {
+            const { syncAllUserRoadmaps } = await import("@/modules/roadmap/service");
+            const allUsers = await db.query.user.findMany({ columns: { id: true } });
+            
+            // Note: Since this could be very large, doing it synchronously in one API call might time out.
+            // For now, it will work since the user base is small. In production, this should be sent to a queue.
+            for (const u of allUsers) {
+                try {
+                    await syncAllUserRoadmaps(u.id);
+                } catch (err) {
+                    console.error(`Failed to sync roadmap for user ${u.id}`, err);
+                }
+            }
+            return { success: true, usersSynced: allUsers.length };
         }),
 
     completeNode: protectedProcedure
@@ -71,6 +95,7 @@ export const roadmapRouter = router({
                                 columns: {
                                     title: true,
                                     skillId: true,
+                                    estimatedDurationHours: true,
                                 },
                                 with: {
                                     skill: {
@@ -100,6 +125,7 @@ export const roadmapRouter = router({
                     skillName: node.curriculumNode.skill.name,
                     priority: node.priority,
                     completedAt: node.completedAt,
+                    estimatedDurationHours: node.curriculumNode.estimatedDurationHours,
                 })),
             };
         }),
@@ -174,6 +200,35 @@ export const roadmapRouter = router({
         }),
 
 
+    markNodeAsMastered: protectedProcedure
+        .input(z.object({ nodeId: z.string().uuid() }))
+        .mutation(async ({ ctx, input }) => {
+            const node = await db.query.roadmapNodes.findFirst({
+                where: eq(roadmapNodes.id, input.nodeId),
+                with: { roadmap: true }
+            });
+
+            if (!node || node.roadmap.userId !== ctx.session.user.id) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Node not found or unauthorized" });
+            }
+
+            // 1. Mark node as completed
+            await db.update(roadmapNodes)
+                .set({ status: "completed", completedAt: new Date() })
+                .where(eq(roadmapNodes.id, input.nodeId));
+
+            // 2. Delete all future scheduled events for this node
+            await db.delete(calendarEvents)
+                .where(
+                    and(
+                        eq(calendarEvents.userId, ctx.session.user.id),
+                        eq(calendarEvents.roadmapNodeId, input.nodeId),
+                        eq(calendarEvents.status, "scheduled")
+                    )
+                );
+
+            return { success: true };
+        }),
 });
 
 

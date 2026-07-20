@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { skills, skillDependencies, userSkills, user } from "@/db/schema";
 import { addManualSkill } from "@/modules/skills/service";
@@ -10,7 +10,7 @@ import { TRPCError } from "@trpc/server";
 const SKILL_SEARCH_SIMILARITY_THRESHOLD = Number(process.env.SKILL_SEARCH_SIMILARITY_THRESHOLD) || 0.3;
 
 export const skillsRouter = router({
-    create: protectedProcedure
+    create: adminProcedure
         .input(
             z.array(
                 z.object({
@@ -169,6 +169,67 @@ export const skillsRouter = router({
                 }
 
                 return createdSkills;
+            });
+        }),
+
+    updateSkill: adminProcedure
+        .input(
+            z.object({
+                id: z.string().uuid(),
+                name: z.string().trim().min(1).optional(),
+                hasNoDependencies: z.boolean().optional(),
+                dependencyIds: z.array(z.string()).optional(),
+                githubKeywords: z.array(z.string()).optional(),
+            })
+        )
+        .mutation(async ({ input }) => {
+            return db.transaction(async (tx) => {
+                const { id, name, hasNoDependencies, dependencyIds, githubKeywords } = input;
+                const updateData: any = {};
+                if (name !== undefined) {
+                    updateData.name = name;
+                    updateData.normalizedName = normalizeSkillName(name);
+                }
+                if (hasNoDependencies !== undefined) updateData.hasNoDependencies = hasNoDependencies;
+                if (githubKeywords !== undefined) updateData.githubKeywords = githubKeywords;
+
+                if (Object.keys(updateData).length > 0) {
+                    await tx.update(skills).set(updateData).where(eq(skills.id, id));
+                }
+
+                if (dependencyIds !== undefined) {
+                    const uniqueDependencyIds = [...new Set(dependencyIds.map(d => d.trim()).filter(d => d.length > 0))];
+                    
+                    const isNoDeps = hasNoDependencies !== undefined ? hasNoDependencies : (await tx.query.skills.findFirst({where: eq(skills.id, id)}))?.hasNoDependencies;
+
+                    if (isNoDeps && uniqueDependencyIds.length > 0) {
+                        throw new TRPCError({
+                            code: "BAD_REQUEST",
+                            message: "Skill marked hasNoDependencies cannot have dependencies."
+                        });
+                    }
+
+                    if (!isNoDeps && uniqueDependencyIds.length === 0) {
+                        throw new TRPCError({
+                            code: "BAD_REQUEST",
+                            message: "Skill must have dependencies or be marked hasNoDependencies = true."
+                        });
+                    }
+
+                    // Delete existing dependencies
+                    await tx.delete(skillDependencies).where(eq(skillDependencies.skillId, id));
+
+                    // Re-insert new ones (assuming they are all valid uuids for simplicity since this is an admin edit)
+                    if (uniqueDependencyIds.length > 0) {
+                        await tx.insert(skillDependencies).values(
+                            uniqueDependencyIds.map(depId => ({
+                                skillId: id,
+                                dependsOnSkillId: depId
+                            }))
+                        );
+                    }
+                }
+                return { success: true };
             });
         }),
 
@@ -399,6 +460,60 @@ export const skillsRouter = router({
                   )
             );
             await Promise.all(updates);
+            return { success: true };
+        }),
+
+    bulkSaveUserSkills: protectedProcedure
+        .input(
+            z.array(
+                z.object({
+                    skillId: z.string().optional(),
+                    skillName: z.string(),
+                    strengthScore: z.number(),
+                })
+            )
+        )
+        .mutation(async ({ input, ctx }) => {
+            const userId = ctx.session.user.id;
+            
+            // We want to replace the user's entire skill set with this new list.
+            // But we shouldn't just delete everything and re-insert, because we might lose historical data if we want it.
+            // Though currently, userSkills is just a join table. 
+            // The cleanest way: use the addManualSkill service function for each (it handles insert/update and finding skill by name).
+            // Then, delete any userSkills that are NOT in the final list.
+            
+            const finalSkillIds: string[] = [];
+
+            for (const item of input) {
+                const added = await addManualSkill({
+                    userId,
+                    skillName: item.skillName,
+                    strength: clampStrength(item.strengthScore)
+                });
+                if (added?.skillId) {
+                    finalSkillIds.push(added.skillId);
+                }
+            }
+
+            // Delete skills that are no longer in the user's list
+            if (finalSkillIds.length > 0) {
+                const { notInArray } = await import("drizzle-orm");
+                await db.delete(userSkills)
+                    .where(
+                        and(
+                            eq(userSkills.userId, userId),
+                            notInArray(userSkills.skillId, finalSkillIds)
+                        )
+                    );
+            } else {
+                // If they deleted all skills, clear the table for this user
+                await db.delete(userSkills).where(eq(userSkills.userId, userId));
+            }
+
+            // Trigger roadmap generation for all their roles
+            const { syncAllUserRoadmaps } = await import("@/modules/roadmap/service");
+            await syncAllUserRoadmaps(userId);
+
             return { success: true };
         }),
 });

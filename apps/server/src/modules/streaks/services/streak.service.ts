@@ -27,12 +27,14 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
             current_streak: currentStreak,
             longest_streak: longestStreak,
             last_resolved_date: lastResolvedDateStr,
+            last_activity_date: lastActivityDateStr,
             freezes_available: freezesAvailable,
             freezes_used_this_month: freezesUsedThisMonth,
             freeze_month_anchor: freezeMonthAnchorStr,
         } = streakRecord;
 
         const lastResolvedDate = lastResolvedDateStr ? new Date(lastResolvedDateStr) : null;
+        let lastActivityDate = lastActivityDateStr ? new Date(lastActivityDateStr) : null;
         let freezeMonthAnchor = freezeMonthAnchorStr ? new Date(freezeMonthAnchorStr) : null;
 
         // Refill freezes on new month and update anchor
@@ -46,20 +48,29 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
             const lastResolvedDateIso = lastResolvedDate.toISOString().split("T")[0]!;
             const upToDateIso = upToDate.toISOString().split("T")[0]!;
             
-            const missedSessions = await tx.select({ date: calendarEvents.date })
+            const missedSessions = await tx.select({ date: calendarEvents.date, status: calendarEvents.status })
                 .from(calendarEvents)
                 .where(
                     and(
                         eq(calendarEvents.userId, userId),
-                        eq(calendarEvents.status, "scheduled"),
                         gt(calendarEvents.date, lastResolvedDateIso),
                         lt(calendarEvents.date, upToDateIso) // Only check strictly in the past
                     )
                 )
                 .orderBy(asc(calendarEvents.date));
 
-            // Distinct missed days
-            const missedDays = Array.from(new Set(missedSessions.map(s => s.date)));
+            // Group by day to see if they completed anything that day
+            const statusByDay = new Map<string, boolean>();
+            for (const s of missedSessions) {
+                if (!statusByDay.has(s.date)) statusByDay.set(s.date, false);
+                if (s.status === "completed") statusByDay.set(s.date, true);
+            }
+
+            // A missed day is a day where there was at least one scheduled/skipped session, but NO completed sessions
+            const missedDays = Array.from(statusByDay.entries())
+                .filter(([_, hasCompleted]) => !hasCompleted)
+                .map(([day]) => day)
+                .sort();
 
             for (const day of missedDays) {
                 if (freezesAvailable > 0) {
@@ -82,13 +93,14 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
         }
 
         if (increment) {
-            // Only increment if we haven't already resolved for this date
-            const lastResolvedNormalized = lastResolvedDate 
-                ? lastResolvedDate.toISOString().split("T")[0] 
+            // Only increment if we haven't already had activity for this date
+            const lastActivityNormalized = lastActivityDate 
+                ? lastActivityDate.toISOString().split("T")[0] 
                 : null;
                 
-            if (!lastResolvedNormalized || upToDateStr !== lastResolvedNormalized) {
+            if (!lastActivityNormalized || upToDateStr !== lastActivityNormalized) {
                 currentStreak += 1;
+                lastActivityDate = upToDate; // Update last activity date to today
                 longestStreak = Math.max(longestStreak, currentStreak);
                 
                 const milestones = [3, 7, 14, 30, 60, 100];
@@ -104,11 +116,13 @@ export async function settleStreak(userId: string, upToDateStr: string, incremen
 
         const newResolvedDate = upToDateStr;
         const newAnchor = freezeMonthAnchor.toISOString().split("T")[0];
+        const newActivityDate = lastActivityDate ? lastActivityDate.toISOString().split("T")[0] : null;
 
         await tx.update(userStreaks).set({
             currentStreak,
             longestStreak,
             lastResolvedDate: newResolvedDate,
+            lastActivityDate: newActivityDate,
             freezesAvailable,
             freezesUsedThisMonth,
             freezeMonthAnchor: newAnchor

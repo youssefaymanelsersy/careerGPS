@@ -8,8 +8,9 @@ import { useScoreMatch, useRemainingAiQuota, type ScoreMatchInput } from "@/feat
 import { ScoreMatchingUpload } from "@/features/dashboard/components/score-matching-upload";
 import { ScoreMatchingLoading } from "@/features/dashboard/components/score-matching-loading";
 import { ScoreMatchingResults } from "@/features/dashboard/components/score-matching-results";
+import { RequireVerifiedEmail } from "@/components/composites/require-verified-email";
 
-export default function DashboardScoreMatching() {
+function DashboardScoreMatchingContent() {
   const navigate = useNavigate();
   const [fileName, setFileName] = useState<string | null>(null);
   const { scoreMatch, data, isPending, isSuccess, reset } = useScoreMatch();
@@ -96,3 +97,12 @@ export default function DashboardScoreMatching() {
     </div>
   );
 }
+
+export default function DashboardScoreMatching() {
+  return (
+    <RequireVerifiedEmail>
+      <DashboardScoreMatchingContent />
+    </RequireVerifiedEmail>
+  );
+}
+

@@ -207,37 +207,6 @@ export async function syncGithubSkillsForUser({
         skillsByNormalizedName.set(key, bucket);
     }
 
-    const normalizedInferredSkillNames = new Set(
-        [...combinedSkillStrengths.keys()].map((skill) => normalizeSkillName(skill))
-    );
-
-    const missingNormalizedSkillNames = [...normalizedInferredSkillNames].filter(
-        (normalizedName) => !skillsByNormalizedName.has(normalizedName)
-    );
-
-    if (missingNormalizedSkillNames.length > 0) {
-        await db
-            .insert(skills)
-            .values(
-                missingNormalizedSkillNames.map((name) => ({
-                    name,
-                    normalizedName: name,
-                    hasNoDependencies: true,
-                }))
-            )
-            .onConflictDoNothing();
-
-        const refreshedSkills = await db.select().from(skills);
-        skillsByNormalizedName = new Map();
-
-        for (const skill of refreshedSkills) {
-            const key = normalizeSkillName(skill.name);
-            const bucket = skillsByNormalizedName.get(key) ?? [];
-            bucket.push(skill);
-            skillsByNormalizedName.set(key, bucket);
-        }
-    }
-
     for (const contribution of contributions.values()) {
         const complexityScore = calculateContributionComplexity(contribution);
 
@@ -277,19 +246,18 @@ export async function syncGithubSkillsForUser({
             }
         }
     }   
-    // const converStrengthToLevel = (strength : number)=>{
-    //     if(strength<30){
-    //         return "beginner" ;
-    //     }
-    //     return (strength<60)? "intermediate" : "expert" ;
-    // }
-    const githubSkills = [...combinedSkillStrengths.entries()].map(
-    ([skill, strength]) => ({
-        "skillName":skill,
-        "strength": strength
-        // "level": converStrengthToLevel(strength),
-    })
-);
+
+    const githubSkills = [];
+    for (const [skill, strength] of combinedSkillStrengths.entries()) {
+        const normalized = normalizeSkillName(skill);
+        const matched = skillsByNormalizedName.get(normalized);
+        if (matched && matched.length > 0) {
+            githubSkills.push({
+                skillName: matched[0].name,
+                strength
+            });
+        }
+    }
     
 
     const totalStars = repos.reduce(

@@ -50,8 +50,13 @@ export default function LoginForm() {
           password: value.password,
         },
         {
-          onSuccess: () => {
-            navigate("/roadmap");
+          onSuccess: (ctx) => {
+            const user = ctx.data?.user as any;
+            if (user?.systemRole === "admin") {
+              navigate("/admin");
+            } else {
+              navigate("/roadmap");
+            }
             toast.success("Login successful");
           },
           onError: (ctx) => {

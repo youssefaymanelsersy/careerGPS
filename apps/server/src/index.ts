@@ -9,6 +9,7 @@ import express from "express";
 import cvRoute from "./modules/cv/routes/restful_route";
 import userRoute from "./modules/user/routes/restful_route";
 import speachRoute from "./modules/speech/restful_route";
+import calendarRoute from "./modules/calendar/routes/restful_route";
 import multer from "multer";
 import type { Request, Response, NextFunction } from "express";
 
@@ -43,6 +44,7 @@ app.all("/api/auth{/*path}", toNodeHandler(auth));
 app.use("/cv", cvRoute);
 app.use("/user", userRoute);
 app.use("/speach", speachRoute);
+app.use("/calendar", calendarRoute);
 app.use(
   (err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof multer.MulterError) {

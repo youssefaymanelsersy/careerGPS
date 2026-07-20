@@ -39,6 +39,32 @@ export const notificationsRouter = router({
         return { success: true };
     }),
 
+    getPreferences: protectedProcedure.query(async ({ ctx }) => {
+        const categories = ["reminders", "streaks", "milestones"] as const;
+
+        const existing = await db.query.notificationPreferences.findMany({
+            where: eq(notificationPreferences.userId, ctx.session.user.id),
+        });
+
+        return categories.map((category) => {
+            const found = existing.find((p) => p.category === category);
+            if (found) return found;
+
+            // Mirror the column defaults from the schema for categories
+            // the user hasn't saved a row for yet.
+            return {
+                id: null,
+                userId: ctx.session.user.id,
+                category,
+                channelInApp: true,
+                channelEmail: true,
+                channelPush: true,
+                quietHoursStart: "22:00:00",
+                quietHoursEnd: "08:00:00",
+            };
+        });
+    }),
+
     updatePreferences: protectedProcedure
         .input(z.object({
             category: z.enum(["reminders", "streaks", "milestones"]),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import {  curriculumNodeResources, skillCurriculumNodes, skills } from "@/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
@@ -10,7 +10,7 @@ import { TRPCError } from "@trpc/server";
 export const curriculumRouter = router({
     
     // Bulk insert which remove the old curriculum and add the new curriculum if curriculum already exists
-    addCurriculumNodesForSkill: protectedProcedure
+    addCurriculumNodesForSkill: adminProcedure
         .input(
             z.array(
                 z.object({
@@ -20,6 +20,7 @@ export const curriculumRouter = router({
                             orderIndex: z.number().int().min(0),
                             title: z.string().trim().min(1),
                             description: z.string().trim().min(1),
+                            estimatedDurationHours: z.number().int().min(1).optional(),
                         })
                     ).min(1),
                 })
@@ -55,6 +56,7 @@ export const curriculumRouter = router({
                         set: {
                             title: sql.raw(`excluded.title`),
                             description: sql.raw(`excluded.description`),
+                            estimatedDurationHours: sql.raw(`COALESCE(excluded.estimated_duration_hours, skill_curriculum_nodes.estimated_duration_hours)`),
                         },
                     })
                     .returning();
@@ -67,7 +69,7 @@ export const curriculumRouter = router({
             };
         }),
 
-    updateCurriculumNodesForSkill: protectedProcedure
+    updateCurriculumNodesForSkill: adminProcedure
         .input(
             z.object({
                 skillId: z.string().uuid(),
@@ -76,6 +78,7 @@ export const curriculumRouter = router({
                         orderIndex: z.number().int().min(0),
                         title: z.string().trim().min(1),
                         description: z.string().trim().min(1),
+                        estimatedDurationHours: z.number().int().min(1).optional(),
                     })
                 ).min(1),
             })
@@ -105,6 +108,7 @@ export const curriculumRouter = router({
                     set: {
                         title: sql.raw(`excluded.title`),
                         description: sql.raw(`excluded.description`),
+                        estimatedDurationHours: sql.raw(`COALESCE(excluded.estimated_duration_hours, skill_curriculum_nodes.estimated_duration_hours)`),
                     },
                 })
                 .returning();
@@ -132,13 +136,14 @@ export const curriculumRouter = router({
             return nodes;
         }),
 
-    updateCurriculumNode: protectedProcedure
+    updateCurriculumNode: adminProcedure
         .input(
             z.object({
                 id: z.string().uuid(),
                 orderIndex: z.number().int().min(0).optional(),
                 title: z.string().trim().min(1).optional(),
                 description: z.string().trim().min(1).optional(),
+                estimatedDurationHours: z.number().int().min(1).optional(),
             })
         )
         .mutation(async ({ input }) => {
@@ -149,12 +154,13 @@ export const curriculumRouter = router({
             if (typeof input.orderIndex === "number") updatePayload.orderIndex = input.orderIndex;
             if (typeof input.title === "string") updatePayload.title = input.title;
             if (typeof input.description === "string") updatePayload.description = input.description;
+            if (typeof input.estimatedDurationHours === "number") updatePayload.estimatedDurationHours = input.estimatedDurationHours;
 
             const updated = await db.update(skillCurriculumNodes).set(updatePayload).where(eq(skillCurriculumNodes.id, input.id)).returning();
             return updated[0];
         }), 
 
-    deleteCurriculumNode: protectedProcedure
+    deleteCurriculumNode: adminProcedure
         .input(z.object({ id: z.string().uuid() }))
         .mutation(async ({ input }) => {
             const existing = await db.query.skillCurriculumNodes.findFirst({
@@ -166,6 +172,49 @@ export const curriculumRouter = router({
             }
 
             await db.delete(skillCurriculumNodes).where(eq(skillCurriculumNodes.id, input.id));
+            return { success: true };
+        }),
+
+    reorderCurriculumNode: adminProcedure
+        .input(
+            z.object({
+                id: z.string().uuid(),
+                direction: z.enum(["up", "down"]),
+            })
+        )
+        .mutation(async ({ input }) => {
+            const node = await db.query.skillCurriculumNodes.findFirst({
+                where: eq(skillCurriculumNodes.id, input.id),
+            });
+
+            if (!node) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Node not found" });
+            }
+
+            const allNodes = await db.query.skillCurriculumNodes.findMany({
+                where: eq(skillCurriculumNodes.skillId, node.skillId),
+                orderBy: asc(skillCurriculumNodes.orderIndex),
+            });
+
+            const currentIndex = allNodes.findIndex((n) => n.id === node.id);
+            if (currentIndex === -1) return { success: false };
+
+            if (input.direction === "up" && currentIndex > 0) {
+                const prevNode = allNodes[currentIndex - 1];
+                await db.transaction(async (tx) => {
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: -1 }).where(eq(skillCurriculumNodes.id, node.id));
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: node.orderIndex }).where(eq(skillCurriculumNodes.id, prevNode!.id));
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: prevNode!.orderIndex }).where(eq(skillCurriculumNodes.id, node.id));
+                });
+            } else if (input.direction === "down" && currentIndex < allNodes.length - 1) {
+                const nextNode = allNodes[currentIndex + 1];
+                await db.transaction(async (tx) => {
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: -1 }).where(eq(skillCurriculumNodes.id, node.id));
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: node.orderIndex }).where(eq(skillCurriculumNodes.id, nextNode!.id));
+                    await tx.update(skillCurriculumNodes).set({ orderIndex: nextNode!.orderIndex }).where(eq(skillCurriculumNodes.id, node.id));
+                });
+            }
+
             return { success: true };
         }),
 });

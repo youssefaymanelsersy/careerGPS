@@ -35,7 +35,7 @@ export const notificationCategoryEnum = pgEnum("notification_category", ["remind
 
 export const missedSessionAlerts = pgTable("missed_session_alerts", {
   eventId: uuid("event_id").primaryKey(),
-  userId: text("user_id").notNull(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   alertedAt: timestamp("alerted_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export const notificationPreferences = pgTable("notification_preferences", {

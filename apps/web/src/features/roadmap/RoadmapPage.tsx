@@ -86,6 +86,7 @@ export function RoadmapPage() {
 
       return {
         ...node,
+        priority: node.priority as any,
         status: computedStatus,
       };
     });

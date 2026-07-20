@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { interviewUsage } from "./db/schema";
+import { user } from "@/db/schema";
 import { aiInterviewClient } from "./client";
 import { speechClient } from "./speech.client";
 import {
@@ -42,6 +43,14 @@ export async function checkQuota(userId: string): Promise<void> {
 
   // New calendar month → previous period expired, quota refreshed.
   if (existing.periodStart.getTime() < currentPeriod.getTime()) return;
+
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+  });
+
+  if (currentUser?.systemRole === "admin") {
+    return;
+  }
 
   if (existing.interviewsUsed >= MAX_FREE_INTERVIEWS) {
     const nextReset = new Date(
@@ -108,6 +117,14 @@ export async function getRemainingInterviewsService(
     return { remaining: MAX_FREE_INTERVIEWS, resetsOn };
   }
 
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+  });
+
+  if (currentUser?.systemRole === "admin") {
+    return { remaining: 9999, resetsOn };
+  }
+
   const remaining = Math.max(0, MAX_FREE_INTERVIEWS - existing.interviewsUsed);
   return { remaining, resetsOn };
 }
@@ -138,7 +155,7 @@ export function handleInterviewServiceError(error: unknown): never {
       message: "session_interrupted: The interview couldn't continue because the session was lost. Please start a new session.",
     });
   }
-  
+
   if (error instanceof SessionTimeoutError) {
     throw new TRPCError({
       code: "TIMEOUT",
@@ -167,7 +184,7 @@ export async function startInterviewService(
 
   const mix = getQuestionMix(input.level);
   console.log(input);
-  
+
   try {
     console.log("start interview func called ")
     const response = await aiInterviewClient.startInterview({
@@ -176,7 +193,7 @@ export async function startInterviewService(
       field: input.field,
       question_mix: mix,
     });
-    console.log("response of start interview " , response)
+    console.log("response of start interview ", response)
     return response;
   } catch (error) {
     console.log(error);
@@ -202,7 +219,7 @@ export async function submitAnswerService(
 }
 
 export async function retryReviewService(
-  userId: string,
+  _userId: string,
   sessionId: string
 ): Promise<AIInterviewTerminalResponse> {
   try {
@@ -214,7 +231,7 @@ export async function retryReviewService(
 }
 
 export async function getSessionService(
-  userId: string,
+  _userId: string,
   sessionId: string
 ): Promise<AIInterviewAnswerResponse> {
   try {

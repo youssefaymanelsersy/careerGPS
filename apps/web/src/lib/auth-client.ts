@@ -38,6 +38,10 @@ export const authClient = createAuthClient({
           type: "boolean",
           required: false,
         },
+        systemRole: {
+          type: "string",
+          required: false,
+        },
       },
     }),
   ],

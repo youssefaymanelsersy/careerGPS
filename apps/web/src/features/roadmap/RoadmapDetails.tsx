@@ -86,7 +86,9 @@ export function RoadmapDetails({ mapNode, isMutating, onMarkComplete, onOpenNext
         <Card className="rounded-md">
           <CardContent className="flex flex-col items-center gap-1.5 p-2.5">
             <span className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">TIME</span>
-            <span className="text-xs font-bold text-foreground">1 hr</span>
+            <span className="text-xs font-bold text-foreground">
+              {mapNode.estimatedDurationHours ? `${mapNode.estimatedDurationHours} hr${mapNode.estimatedDurationHours > 1 ? 's' : ''}` : '2 hrs'}
+            </span>
           </CardContent>
         </Card>
       </div>
@@ -134,7 +136,7 @@ export function RoadmapDetails({ mapNode, isMutating, onMarkComplete, onOpenNext
             className="w-full text-[13px] font-semibold h-[42px]"
             onClick={() => onMarkComplete(mapNode.nodeId)}
           >
-            {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark as complete and open next"}
+            {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Topic as Mastered"}
           </Button>
         )}
       </div>

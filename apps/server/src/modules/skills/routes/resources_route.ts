@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import {  curriculumNodeResources, skillCurriculumNodes } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { TRPCError } from "@trpc/server";
 
 export const ResourcesRouter = router({ 
     // Bulk insert
-    addResourcesForCurriculumNodes: protectedProcedure
+    addResourcesForCurriculumNodes: adminProcedure
         .input(
             z.array(
                 z.object({
@@ -70,7 +70,7 @@ export const ResourcesRouter = router({
             };
         }),
 
-    updateResourcesForCurriculumNode: protectedProcedure
+    updateResourcesForCurriculumNode: adminProcedure
         .input(
             z.object({
                 curriculumNodeId: z.string().uuid(),
@@ -128,7 +128,7 @@ export const ResourcesRouter = router({
             return resource;
         }),
 
-    updateCurriculumNodeResource: protectedProcedure
+    updateCurriculumNodeResource: adminProcedure
         .input(
             z.object({
                 id: z.string().uuid(),
@@ -152,7 +152,7 @@ export const ResourcesRouter = router({
             return updated[0];
         }),
 
-    deleteCurriculumNodeResource: protectedProcedure
+    deleteCurriculumNodeResource: adminProcedure
         .input(z.object({ id: z.string().uuid() }))
         .mutation(async ({ input }) => {
             const existing = await db.query.curriculumNodeResources.findFirst({ where: eq(curriculumNodeResources.id, input.id) });

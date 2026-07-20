@@ -3,7 +3,7 @@ import { evaluateUserForRoleName } from "@/modules/roles/service";
 import { router, protectedProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { readinessReports, skillGapResults } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { user } from "@/db/schema";
 import { githubStats } from "@/db/schema";
 import { calculateTier } from "@/modules/roadmap/gamification";
@@ -82,6 +82,7 @@ export const readinessRouter = router({
                 .from(readinessReports)
                 .innerJoin(user, eq(user.id, readinessReports.userId))
                 .leftJoin(githubStats, eq(githubStats.userId, readinessReports.userId))
+                .where(ne(user.systemRole, "admin"))
                 .orderBy(desc(readinessReports.overallReadinessScore));
 
             const uniqueUsers = new Set<string>();
@@ -124,7 +125,7 @@ export const readinessRouter = router({
                 .from(readinessReports)
                 .innerJoin(user, eq(user.id, readinessReports.userId))
                 .leftJoin(githubStats, eq(githubStats.userId, readinessReports.userId))
-                .where(eq(readinessReports.roleId, input.roleId))
+                .where(and(eq(readinessReports.roleId, input.roleId), ne(user.systemRole, "admin")))
                 .orderBy(desc(readinessReports.overallReadinessScore));
 
             const uniqueUsers = new Set<string>();

@@ -129,11 +129,28 @@ export async function generateLearningRoadmapByRoleName({
     if (!role) {
         throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `Role \"${roleId}\" not found.`,
+            message: `Role "${roleId}" not found.`,
         });
     }
 
     return generateLearningRoadmapInternal({ userId, roleId: roleId });
+}
+
+export async function syncAllUserRoadmaps(userId: string) {
+    const userRoadmaps = await db
+        .select({ roleId: roadmaps.roleId })
+        .from(roadmaps)
+        .where(eq(roadmaps.userId, userId));
+
+    const uniqueRoleIds = Array.from(new Set(userRoadmaps.map(r => r.roleId)));
+
+    for (const roleId of uniqueRoleIds) {
+        try {
+            await generateLearningRoadmapInternal({ userId, roleId });
+        } catch (error) {
+            console.error(`Failed to sync roadmap for user ${userId} role ${roleId}`, error);
+        }
+    }
 }
 
 export async function completeRoadmapNode({
@@ -204,8 +221,7 @@ export async function completeRoadmapNode({
         .where(eq(roadmapNodes.id, node.nodeId));
 
     await db
-        .update(calendarEvents)
-        .set({ status: "skipped" })
+        .delete(calendarEvents)
         .where(
             and(
                 eq(calendarEvents.roadmapNodeId, node.nodeId),
@@ -352,6 +368,7 @@ type PendingRoadmapNodeInsert = {
     orderIndex: number;
     status: "pending" | "inProgress" | "completed";
     priority: "high" | "medium";
+    completedAt?: Date | null;
 };
 
 type SkillDependencyRow = {
@@ -372,6 +389,47 @@ async function generateLearningRoadmapInternal({
     roleId: string;
 }) {
     await evaluateUserForRole( {userId , roleId} );
+
+    const existingRoadmap = await db.query.roadmaps.findFirst({
+        where: and(eq(roadmaps.userId, userId), eq(roadmaps.roleId, roleId)),
+        with: {
+            nodes: {
+                columns: {
+                    id: true,
+                    curriculumNodeId: true,
+                    status: true,
+                    completedAt: true
+                }
+            }
+        }
+    });
+
+    const completedNodesMap = new Map<string, { completedAt: Date | null }>();
+    const inProgressNodesMap = new Map<string, boolean>();
+    const calendarEventsCache = new Map<string, any[]>();
+    
+    if (existingRoadmap) {
+        const { calendarEvents } = await import("@/modules/calendar/db/schema");
+        const roadmapNodeIds = existingRoadmap.nodes.map(n => n.id);
+        
+        let existingEvents: any[] = [];
+        if (roadmapNodeIds.length > 0) {
+            existingEvents = await db.select().from(calendarEvents).where(inArray(calendarEvents.roadmapNodeId, roadmapNodeIds));
+        }
+
+        for (const node of existingRoadmap.nodes) {
+            if (node.status === "completed") {
+                completedNodesMap.set(node.curriculumNodeId, { completedAt: node.completedAt });
+            } else if (node.status === "inProgress") {
+                inProgressNodesMap.set(node.curriculumNodeId, true);
+            }
+            
+            const eventsForNode = existingEvents.filter(e => e.roadmapNodeId === node.id);
+            if (eventsForNode.length > 0) {
+                calendarEventsCache.set(node.curriculumNodeId, eventsForNode);
+            }
+        }
+    }
 
     const gapRows = await db
         .select()
@@ -501,15 +559,29 @@ async function generateLearningRoadmapInternal({
         }
 
         const skipCount = nodesToSkip(userStrengthBySkillId.get(skillId) ?? 0, skillNodes.length);
-        const nodesToKeep = skillNodes.slice(skipCount);
-        const selectedNodes = nodesToKeep.length > 0 ? nodesToKeep : [skillNodes[skillNodes.length - 1]!];
+        const uncompletedNodes = skillNodes.slice(skipCount);
+        
+        // Ensure any previously completed nodes are included, even if they would be skipped
+        const completedNodesForSkill = skillNodes.filter(node => completedNodesMap.has(node.id));
+        
+        // Merge them, ensuring no duplicates, and maintaining curriculum order
+        const selectedNodesSet = new Set([...completedNodesForSkill, ...uncompletedNodes]);
+        const selectedNodes = Array.from(selectedNodesSet).sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+        
+        if (selectedNodes.length === 0 && skillNodes.length > 0) {
+            selectedNodes.push(skillNodes[skillNodes.length - 1]!);
+        }
 
         for (const node of selectedNodes) {
+            const isCompleted = completedNodesMap.has(node.id);
+            const isInProgress = inProgressNodesMap.has(node.id);
+
             pendingRoadmapNodeInserts.push({
                 curriculumNodeId: node.id,
                 orderIndex: globalOrder,
-                status: "pending",
+                status: isCompleted ? "completed" : (isInProgress ? "inProgress" : "pending"),
                 priority: roadmapItem.priority,
+                completedAt: isCompleted ? completedNodesMap.get(node.id)?.completedAt : null,
             });
 
             responseNodes.push({
@@ -564,14 +636,39 @@ async function generateLearningRoadmapInternal({
             .values(roadmapNodeInserts)
             .returning();
 
-        const firstPending = insertedRoadmapNodes[0];
-        if (firstPending) {
-            await tx
-                .update(roadmapNodes)
-                .set({ status: "inProgress" })
-                .where(eq(roadmapNodes.id, firstPending.id));
-            
-            firstPending.status = "inProgress";
+        const alreadyInProgress = insertedRoadmapNodes.some(n => n.status === "inProgress");
+        if (!alreadyInProgress) {
+            const firstPending = insertedRoadmapNodes.find(n => n.status === "pending");
+            if (firstPending) {
+                await tx
+                    .update(roadmapNodes)
+                    .set({ status: "inProgress" })
+                    .where(eq(roadmapNodes.id, firstPending.id));
+                
+                firstPending.status = "inProgress";
+            }
+        }
+
+        const calendarEventInserts = [];
+        for (const insertedNode of insertedRoadmapNodes) {
+            const events = calendarEventsCache.get(insertedNode.curriculumNodeId);
+            if (events && events.length > 0) {
+                for (const event of events) {
+                    const { id, roadmapNodeId, createdAt, updatedAt, ...rest } = event;
+                    calendarEventInserts.push({
+                        ...rest,
+                        userId: userId,
+                        roadmapNodeId: insertedNode.id,
+                        createdAt: createdAt,
+                        updatedAt: updatedAt,
+                    });
+                }
+            }
+        }
+
+        if (calendarEventInserts.length > 0) {
+            const { calendarEvents } = await import("@/modules/calendar/db/schema");
+            await tx.insert(calendarEvents).values(calendarEventInserts);
         }
 
         return {

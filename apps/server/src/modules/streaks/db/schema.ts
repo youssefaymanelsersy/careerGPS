@@ -7,6 +7,7 @@ export const userStreaks = pgTable("user_streaks", {
   currentStreak: integer("current_streak").default(0).notNull(),
   longestStreak: integer("longest_streak").default(0).notNull(),
   lastResolvedDate: date("last_resolved_date"),
+  lastActivityDate: date("last_activity_date"),
   freezesAvailable: integer("freezes_available").default(3).notNull(),
   freezesUsedThisMonth: integer("freezes_used_this_month").default(0).notNull(),
   freezeMonthAnchor: date("freeze_month_anchor"),

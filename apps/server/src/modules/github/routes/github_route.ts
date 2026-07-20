@@ -25,6 +25,9 @@ export const githubRouter = router({
                     userId: ctx.session.user.id,
                     roleId: ctx.session.user.roleId,
                 });
+
+                const { syncAllUserRoadmaps } = await import("@/modules/roadmap/service");
+                await syncAllUserRoadmaps(ctx.session.user.id);
             }
 
             return result;

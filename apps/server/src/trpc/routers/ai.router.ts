@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { env } from "@careergps/env/server";
-import { protectedProcedure, router } from "../index";
+import { verifiedProcedure, router } from "../index";
 import {
   checkDailyQuota,
   incrementDailyQuota,
@@ -96,7 +96,7 @@ const scoreMatchInputSchema = z
   );
 
 export const aiRouter = router({
-  atsScore: protectedProcedure
+  atsScore: verifiedProcedure
     .input(
       z.object({
         fileBase64: z.string().min(1).optional(),
@@ -151,7 +151,7 @@ export const aiRouter = router({
       return data;
     }),
 
-  scoreMatch: protectedProcedure
+  scoreMatch: verifiedProcedure
     .input(scoreMatchInputSchema)
     .output(scoreMatchOutputSchema)
     .mutation(async ({ input, ctx }) => {
@@ -218,7 +218,7 @@ export const aiRouter = router({
       return { match_result: json.match_result };
     }),
 
-  getRemainingAiQuota: protectedProcedure
+  getRemainingAiQuota: verifiedProcedure
     .input(z.object({ feature: z.enum(["ats", "skill_match"]) }))
     .query(async ({ input, ctx }) => {
       return await getRemainingDailyQuota(ctx.session.user.id, input.feature);

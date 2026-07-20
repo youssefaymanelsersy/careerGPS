@@ -8,8 +8,9 @@ import { useAtsEvaluate, useRemainingAiQuota } from "@/features/dashboard/dashbo
 import { AtsUpload } from "@/features/dashboard/components/ats-upload";
 import { AtsLoading } from "@/features/dashboard/components/ats-loading";
 import { AtsResults } from "@/features/dashboard/components/ats-results";
+import { RequireVerifiedEmail } from "@/components/composites/require-verified-email";
 
-export default function DashboardATS() {
+function DashboardATSContent() {
   const navigate = useNavigate();
   const [fileName, setFileName] = useState<string | null>(null);
   const { atsScore, data, isPending, isSuccess, reset } = useAtsEvaluate();
@@ -96,3 +97,12 @@ export default function DashboardATS() {
     </div>
   );
 }
+
+export default function DashboardATS() {
+  return (
+    <RequireVerifiedEmail>
+      <DashboardATSContent />
+    </RequireVerifiedEmail>
+  );
+}
+

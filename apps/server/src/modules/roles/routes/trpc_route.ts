@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "@/trpc/index";
+import { router, protectedProcedure, adminProcedure } from "@/trpc/index";
 import { db } from "@/db";
 import { roles, roleSkills, user } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { evaluateUserForRoleName } from "../service";
 
 export const rolesRouter = router({
-    create: protectedProcedure
+    create: adminProcedure
         .input(
             z.object({
                 title: z.string().trim().min(1),
@@ -41,7 +41,7 @@ export const rolesRouter = router({
             return role;
         }),
 
-    addSkills: protectedProcedure
+    updateSkills: adminProcedure
         .input(
             z.object({
                 roleId: z.string().uuid(),

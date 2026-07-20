@@ -12,10 +12,14 @@ function MarketingLayout() {
 
   useEffect(() => {
     if (!isPending && session && !isVerifyEmailRoute) {
-      navigate(
-        session.user.isOnboarded ? '/roadmap' : '/onboarding',
-        { replace: true }
-      )
+      if (session.user.systemRole === "admin") {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(
+          session.user.isOnboarded ? '/roadmap' : '/onboarding',
+          { replace: true }
+        )
+      }
     }
   }, [session, isPending, navigate, isVerifyEmailRoute])
 
