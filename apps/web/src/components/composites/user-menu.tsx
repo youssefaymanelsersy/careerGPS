@@ -43,6 +43,11 @@ export default function UserMenu() {
           <DropdownMenuItem onClick={()=>{
             navigate("/profile")
           }}>Profile</DropdownMenuItem>
+          {session.user.systemRole === "admin" && (
+            <DropdownMenuItem onClick={() => {
+              navigate("/admin")
+            }}>Admin Dashboard</DropdownMenuItem>
+          )}
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {

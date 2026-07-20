@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon, Calendar, PenTool, MicIcon } from "lucide-react"
+import { CompassIcon, FileTextIcon, TargetIcon, UserRoundIcon, MapIcon, Calendar, PenTool, MicIcon, SettingsIcon } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link, useLocation } from "react-router"
@@ -37,23 +37,10 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-
           <SidebarMenuItem>
             <SidebarMenuButton isActive={location.pathname === "/profile"} render={<Link to="/profile" />}>
               <UserRoundIcon className="size-4" />
               <span>Profile</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton isActive={location.pathname === "/ats"} render={<Link to="/ats" />}>
-              <FileTextIcon className="size-4" />
-              <span>ATS Scanner</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton isActive={location.pathname === "/score-matching"} render={<Link to="/score-matching" />}>
-              <TargetIcon className="size-4" />
-              <span>Skill Matching</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -69,15 +56,33 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/score-matching"} render={<Link to="/score-matching" />}>
+              <TargetIcon className="size-4" />
+              <span>Skill Matching</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton isActive={location.pathname === "/cv-builder"} render={<Link to="/cv-builder" />}>
               <PenTool className="size-4" />
               <span>CV Builder</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/ats"} render={<Link to="/ats" />}>
+              <FileTextIcon className="size-4" />
+              <span>ATS Scanner</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton isActive={location.pathname.startsWith("/interview")} render={<Link to="/interview" />}>
               <MicIcon className="size-4" />
               <span>Interview</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={location.pathname === "/settings"} render={<Link to="/settings" />}>
+              <SettingsIcon className="size-4" />
+              <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

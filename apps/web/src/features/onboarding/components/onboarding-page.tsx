@@ -126,6 +126,7 @@ export function OnboardingPage() {
       await setAvailabilityMutation.mutateAsync({
         availableDaysPerWeek: daysPerWeek,
         availableHoursPerDay: hoursPerDay,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       await setUserRoleMutation.mutateAsync({ roleId });
