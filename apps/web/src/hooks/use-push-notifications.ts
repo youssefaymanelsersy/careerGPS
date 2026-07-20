@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { env } from "@careergps/env/web";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 
 // Utility to convert VAPID key
 function urlBase64ToUint8Array(base64String: string) {
@@ -19,11 +20,10 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-import { useMutation } from "@tanstack/react-query";
-
 export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [isSubscribing, setIsSubscribing] = useState(false);
   
   const registerMutation = useMutation({
     ...trpc.notifications.registerPushSubscription.mutationOptions(),
@@ -47,12 +47,15 @@ export function usePushNotifications() {
       return;
     }
 
+    setIsSubscribing(true);
+
     try {
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
 
       if (permissionResult !== "granted") {
         toast.error("You denied push notifications.");
+        setIsSubscribing(false);
         return;
       }
 
@@ -85,6 +88,8 @@ export function usePushNotifications() {
     } catch (error) {
       console.error("Error subscribing to push notifications:", error);
       toast.error("Failed to enable push notifications.");
+    } finally {
+      setIsSubscribing(false);
     }
   };
 
@@ -92,6 +97,6 @@ export function usePushNotifications() {
     isSupported,
     permission,
     subscribe,
-    isSubscribing: registerMutation.isPending
+    isSubscribing
   };
 }

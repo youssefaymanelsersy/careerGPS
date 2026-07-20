@@ -11,6 +11,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
   SidebarInset,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Shield, BookOpen, Wrench, Users, ArrowLeft, RefreshCw, Briefcase } from "lucide-react";
 import Logo from "@/components/ui/logo";
@@ -21,6 +22,7 @@ import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
 import UserMenu from "@/components/composites/user-menu";
+import { NavUser } from "@/features/dashboard/components/nav-user";
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -90,6 +92,9 @@ export default function AdminLayout() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
+        <SidebarFooter>
+          <NavUser user={session.user} />
+        </SidebarFooter>
       </Sidebar>
 
       <SidebarInset className="flex flex-col flex-1 h-screen overflow-hidden">
@@ -110,7 +115,8 @@ export default function AdminLayout() {
               disabled={syncGlobalRoadmapsMutation.isPending}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncGlobalRoadmapsMutation.isPending ? "animate-spin" : ""}`} />
-              Sync All Users
+              <span className="hidden sm:inline">Sync All Users</span>
+              <span className="sm:hidden">Sync</span>
             </Button>
             <UserMenu />
           </div>
