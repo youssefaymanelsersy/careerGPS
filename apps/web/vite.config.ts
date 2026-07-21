@@ -5,8 +5,14 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
-server: {
+  server: {
     allowedHosts: true,
-    host:true
-   }
+    host: true
+  },
+  resolve: {
+    alias: {
+      "react-dom/server": "react-dom/server.node",
+      "react-dom/server.bun.js": "react-dom/server.node",
+    }
+  }
 });
