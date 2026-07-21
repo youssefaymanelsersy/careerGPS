@@ -17,6 +17,7 @@ import type { Route } from "./+types/root";
 import { Toaster } from "./components/ui/sonner";
 import { queryClient } from "./utils/trpc";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { ServerWakeup } from "./components/composites/server-wakeup";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -55,11 +56,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ServerWakeup>
         <Outlet />
-        <Toaster richColors />
+      </ServerWakeup>
+      <Toaster richColors />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </QueryClientProvider>
   );

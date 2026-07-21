@@ -66,6 +66,10 @@ app.use(
 );
 
 
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "online" });
+});
+
 app.get("/", (_req, res) => {
   res.status(200).send("OK");
 });
