@@ -9,6 +9,12 @@ RUN bun run build --filter=web
 FROM nginx:alpine
 RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '  listen 5173;' >> /etc/nginx/conf.d/default.conf && \
+    echo '  location = /env.js {' >> /etc/nginx/conf.d/default.conf && \
+    echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    add_header Cache-Control "no-cache, no-store, must-revalidate";' >> /etc/nginx/conf.d/default.conf && \
+    echo '    add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
+    echo '    add_header Expires 0;' >> /etc/nginx/conf.d/default.conf && \
+    echo '  }' >> /etc/nginx/conf.d/default.conf && \
     echo '  location / {' >> /etc/nginx/conf.d/default.conf && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
     echo '    index index.html index.htm;' >> /etc/nginx/conf.d/default.conf && \
@@ -17,5 +23,9 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '}' >> /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/apps/web/build/client /usr/share/nginx/html
+COPY docker-entrypoint.web.sh /docker-entrypoint.web.sh
+RUN chmod +x /docker-entrypoint.web.sh
+
 EXPOSE 5173
+ENTRYPOINT ["/docker-entrypoint.web.sh"]
 CMD ["nginx", "-g", "daemon off;"]

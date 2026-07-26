@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CvOptimizationResponse, TemplateDesign } from "../types";
+import { env } from "@/config/env";
 
 interface UseOptimizeCvResult {
   optimizeCv: (
@@ -12,8 +13,8 @@ interface UseOptimizeCvResult {
   error: Error | null;
 }
 
-const API_URL = import.meta.env.VITE_SERVER_URL;
 
+const API_URL = env.VITE_SERVER_URL;
 export function useOptimizeCv(): UseOptimizeCvResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
