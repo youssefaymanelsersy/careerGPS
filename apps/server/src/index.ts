@@ -28,7 +28,9 @@ app.use(
   }),
 );
 
-app.use(
+const apiRouter = express.Router();
+
+apiRouter.use(
   "/trpc",
   express.json({ limit: "15mb" }),
   createExpressMiddleware({
@@ -37,15 +39,14 @@ app.use(
   }),
 );
 
-app.use(express.json());
+apiRouter.use(express.json());
 
-app.all("/api/auth{/*path}", toNodeHandler(auth));
+apiRouter.use("/cv", cvRoute);
+apiRouter.use("/user", userRoute);
+apiRouter.use("/speach", speachRoute);
+apiRouter.use("/calendar", calendarRoute);
 
-app.use("/cv", cvRoute);
-app.use("/user", userRoute);
-app.use("/speach", speachRoute);
-app.use("/calendar", calendarRoute);
-app.use(
+apiRouter.use(
   (err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({
@@ -65,10 +66,19 @@ app.use(
   }
 );
 
+apiRouter.get("/health", (_req, res) => {
+  res.status(200).json({ status: "online" });
+});
 
+app.use("/api", apiRouter);
+
+// Render Health Check Fallback
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "online" });
 });
+
+// BetterAuth automatically expects to be at /api/auth by default
+app.all("/api/auth{/*path}", toNodeHandler(auth));
 
 app.get("/", (_req, res) => {
   res.status(200).send("OK");

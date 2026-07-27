@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CvOptimizationResponse, TemplateDesign } from "../types";
-import { env } from "@/config/env";
+import { env } from "@careergps/env/web";
 
 interface UseOptimizeCvResult {
   optimizeCv: (
