@@ -3,7 +3,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: Dockerfile.server
+      dockerfile: apps/server/Dockerfile
 
     container_name: careergps-server
 
@@ -19,7 +19,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: apps/web/Dockerfile
 
     container_name: careergps-web
 

@@ -1,9 +1,16 @@
+FROM oven/bun:1.3.6-alpine AS pruner
+WORKDIR /app
+RUN bun add -g turbo
+COPY . .
+RUN turbo prune web --docker
+
 FROM oven/bun:1.3.6-alpine AS builder
 WORKDIR /app
-COPY package.json bun.lock turbo.json tsconfig.json ./
-COPY packages ./packages
-COPY apps ./apps
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/bun.lock/ ./bun.lock
 RUN bun install --frozen-lockfile
+
+COPY --from=pruner /app/out/full/ .
 RUN bun run build --filter=web
 
 FROM nginx:alpine
@@ -23,9 +30,9 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '}' >> /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/apps/web/build/client /usr/share/nginx/html
-COPY docker-entrypoint.web.sh /docker-entrypoint.web.sh
-RUN chmod +x /docker-entrypoint.web.sh
+COPY apps/web/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 5173
-ENTRYPOINT ["/docker-entrypoint.web.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
