@@ -26,7 +26,9 @@
     "db:push": "turbo -F @careergps/db db:push",
     "db:studio": "turbo -F @careergps/db db:studio",
     "db:generate": "turbo -F @careergps/db db:generate",
-    "db:migrate": "turbo -F @careergps/db db:migrate"
+    "db:migrate": "turbo -F @careergps/db db:migrate",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d"
   },
   "dependencies": {
     "@careergps/env": "workspace:*",
