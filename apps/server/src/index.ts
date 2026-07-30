@@ -66,7 +66,40 @@ apiRouter.use(
   }
 );
 
+const wakeUpAIServices = () => {
+  const aiUrls = [
+    env.AI_MICROSERVICE_URL,
+    env.AI_TEAM_ATS_URL,
+    env.AI_TEAM_MATCHING_URL,
+    env.AI_TEAM_PARSER_URL,
+    env.AI_INTERVIEW_SERVICE_URL
+  ].filter(Boolean) as string[];
+
+  const uniqueOrigins = Array.from(new Set(aiUrls.map(url => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return null;
+    }
+  }).filter(Boolean)));
+
+  // Ping the unique origins with a 5-second timeout to prevent hanging connections
+  Promise.all(uniqueOrigins.map(origin => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    return fetch(`${origin}/`, { signal: controller.signal })
+      .finally(() => clearTimeout(timeoutId))
+      .catch(() => {});
+  })).catch(() => {});
+};
+
+// Keep AI services awake as long as the backend is running
+// Pings them every 14 minutes (Render sleeps after 15 mins of inactivity)
+setInterval(wakeUpAIServices, 14 * 60 * 1000);
+
 apiRouter.get("/health", (_req, res) => {
+  wakeUpAIServices();
   res.status(200).json({ status: "online" });
 });
 
@@ -74,6 +107,7 @@ app.use("/api", apiRouter);
 
 // Render Health Check Fallback
 app.get("/health", (_req, res) => {
+  wakeUpAIServices();
   res.status(200).json({ status: "online" });
 });
 
@@ -86,4 +120,6 @@ app.get("/", (_req, res) => {
 
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
+  // Boot up AI services immediately when backend starts
+  wakeUpAIServices();
 });
