@@ -4,7 +4,7 @@ import { user } from "@/modules/user/db/schema";
 import { env } from "@careergps/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { VerificationEmail, getVerificationSubject } from "@careergps/emails";
+import { getVerificationSubject, renderVerificationEmailHtml } from "@careergps/emails";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
