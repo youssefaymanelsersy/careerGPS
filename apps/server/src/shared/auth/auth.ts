@@ -20,12 +20,17 @@ export const auth = betterAuth({
         const resend = new Resend(env.RESEND_API_KEY);
         
         const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=reset_password&token=${data.token}`;
-        await resend.emails.send({
+        const html = await renderVerificationEmailHtml("reset_password", frontendUrl);
+        const { error } = await resend.emails.send({
             from: "CareerGPS <auth@updates.careergps.space>",
             to: data.user.email,
             subject: getVerificationSubject("reset_password"),
-            react: VerificationEmail({ type: "reset_password", url: frontendUrl }),
+            html,
         });
+        if (error) {
+            console.error("[Resend] Failed to send reset-password email:", error);
+            throw new Error(`Failed to send reset-password email: ${error.message}`);
+        }
     },
   },
   emailVerification: {
@@ -36,12 +41,17 @@ export const auth = betterAuth({
         const resend = new Resend(env.RESEND_API_KEY);
         
         const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=verify_email&token=${data.token}`;
-        await resend.emails.send({
+        const html = await renderVerificationEmailHtml("verify_email", frontendUrl);
+        const { error } = await resend.emails.send({
             from: "CareerGPS <auth@updates.careergps.space>",
             to: data.user.email,
             subject: getVerificationSubject("verify_email"),
-            react: VerificationEmail({ type: "verify_email", url: frontendUrl }),
+            html,
         });
+        if (error) {
+            console.error("[Resend] Failed to send verification email:", error);
+            throw new Error(`Failed to send verification email: ${error.message}`);
+        }
     }
   },
   advanced: {
