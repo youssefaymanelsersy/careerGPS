@@ -75,6 +75,9 @@ jobs:
       # Build the project
       - name: Build
         run: bun run build
+        env:
+          VITE_SERVER_URL: "http://localhost:3000"
+          VITE_VAPID_PUBLIC_KEY: "placeholder-vapid-key-for-ci-build-only"
 
   # Build Docker images
   docker-build:
