@@ -7,10 +7,10 @@ export const SkillSchema = z.object({
 
 export const SkillsContainerSchema = z
   .object({
-    technical: z.array(SkillSchema).default([]),
-    nonTechnical: z.array(SkillSchema).default([]),
+    technical: z.array(SkillSchema).catch([]),
+    nonTechnical: z.array(SkillSchema).catch([]),
   })
-  .default({ technical: [], nonTechnical: [] });
+  .catch({ technical: [], nonTechnical: [] });
 
 export const ExperienceSchema = z.object({
   company: z.string().min(1).nullable(),
@@ -23,7 +23,7 @@ export const ExperienceSchema = z.object({
 export const ProjectSchema = z.object({
   name: z.string().nullable(),
   description: z.string().nullable(),
-  technologies: z.array(z.string()).default([]),
+  technologies: z.array(z.string()).catch([]),
   url: z.string().nullable(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
@@ -48,7 +48,7 @@ export const LinksSchema = z.object({
   github: z.string().nullable(),
   linkedin: z.string().nullable(),
   portfolio: z.string().nullable(),
-}).default({ github: null, linkedin: null, portfolio: null });
+}).catch({ github: null, linkedin: null, portfolio: null });
 
 export const ParsedCVDataSchema = z.object({
   fullName: z.string().nullable(),
@@ -59,15 +59,15 @@ export const ParsedCVDataSchema = z.object({
 
   skills: SkillsContainerSchema,
 
-  experience: z.array(ExperienceSchema).default([]),
+  experience: z.array(ExperienceSchema).catch([]),
 
-  projects: z.array(ProjectSchema).default([]),
+  projects: z.array(ProjectSchema).catch([]),
 
-  education: z.array(EducationSchema).default([]),
+  education: z.array(EducationSchema).catch([]),
 
-  certifications: z.array(CertificationSchema).default([]),
+  certifications: z.array(CertificationSchema).catch([]),
 
-  languages: z.array(z.string()).default([]),
+  languages: z.array(z.string()).catch([]),
 
   links: LinksSchema,
 });
