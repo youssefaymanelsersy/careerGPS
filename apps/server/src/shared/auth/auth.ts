@@ -19,7 +19,7 @@ export const auth = betterAuth({
         const { Resend } = await import("resend");
         const resend = new Resend(env.RESEND_API_KEY);
         
-        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=reset_password&token=${data.token}`;
+        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=reset_password&token=${encodeURIComponent(data.token)}`;
         const html = await renderVerificationEmailHtml("reset_password", frontendUrl);
         const { error } = await resend.emails.send({
             from: "CareerGPS <auth@updates.careergps.space>",
@@ -37,10 +37,11 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async (data) => {
+        console.log("sendVerificationEmail called with:", data);
         const { Resend } = await import("resend");
         const resend = new Resend(env.RESEND_API_KEY);
         
-        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=verify_email&token=${data.token}`;
+        const frontendUrl = `${env.CORS_ORIGIN}/verify-email?type=verify_email&token=${encodeURIComponent(data.token)}`;
         const html = await renderVerificationEmailHtml("verify_email", frontendUrl);
         const { error } = await resend.emails.send({
             from: "CareerGPS <auth@updates.careergps.space>",

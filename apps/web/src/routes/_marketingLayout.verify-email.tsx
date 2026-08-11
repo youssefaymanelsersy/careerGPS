@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { env } from "@careergps/env/web";
+import { authClient } from "@/lib/auth-client";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -42,18 +42,15 @@ export default function VerifyEmailPage() {
 
     setStatus("loading");
     try {
-      const res = await fetch(`${env.VITE_SERVER_URL}/api/auth/verify-email?token=${token}`, {
-        credentials: "include",
-      });
-      if (res.ok || res.redirected) {
+      const { data, error } = await authClient.verifyEmail({ query: { token } });
+      if (!error) {
         setStatus("success");
         setTimeout(() => {
           navigate("/roadmap", { replace: true });
         }, 1500);
       } else {
-        const data = await res.json().catch(() => null);
         setStatus("error");
-        setErrorMessage(data?.message || "Verification failed. The authorization link may have expired.");
+        setErrorMessage(error.message || "Verification failed. The authorization link may have expired.");
       }
     } catch (err) {
       setStatus("error");
