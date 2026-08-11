@@ -117,10 +117,10 @@ export function mergeGraphqlContributionStats({
         merged.set(repoStats.repoName, existing);
     }
 
-    const targetRepoNames =
-        stats.repoCommitBreakdown.length > 0
-            ? stats.repoCommitBreakdown.map((repo) => repo.repoName)
-            : [...merged.keys()];
+    // const targetRepoNames =
+    //     stats.repoCommitBreakdown.length > 0
+    //         ? stats.repoCommitBreakdown.map((repo) => repo.repoName)
+    //         : [...merged.keys()];
 
     return merged;
 }

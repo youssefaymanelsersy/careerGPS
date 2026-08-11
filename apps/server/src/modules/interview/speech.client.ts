@@ -1,4 +1,4 @@
-import { env } from "@careergps/env/server";
+
 import {
   type SpeechToTextResponse,
   SpeechServiceError,
@@ -14,7 +14,7 @@ export class SpeechClient {
   private readonly defaultTimeoutMs: number = 20000; // 20 seconds timeout for Speech Service
 
   constructor() {
-    const url = env.SPEECH_SERVICE_URL;
+    const url = process.env.SPEECH_SERVICE_URL;
     if (!url) {
       console.warn("SPEECH_SERVICE_URL is not set. Defaulting to http://localhost:8001");
     }
@@ -93,7 +93,7 @@ export class SpeechClient {
     if (audio instanceof Blob) {
       fileObj = new File([audio], filename, { type: audio.type || "audio/webm" });
     } else {
-      fileObj = new File([audio], filename, { type: "audio/webm" });
+      fileObj = new File([audio as any], filename, { type: "audio/webm" });
     }
 
     formData.append("file", fileObj);

@@ -251,9 +251,10 @@ export async function syncGithubSkillsForUser({
     for (const [skill, strength] of combinedSkillStrengths.entries()) {
         const normalized = normalizeSkillName(skill);
         const matched = skillsByNormalizedName.get(normalized);
-        if (matched && matched.length > 0) {
+        const firstMatch = matched?.[0];
+        if (firstMatch) {
             githubSkills.push({
-                skillName: matched[0].name,
+                skillName: firstMatch.name,
                 strength
             });
         }

@@ -123,8 +123,6 @@ async function evaluateUserForRoleInternal({
     const weakSkills: string[] = [];
     const bonusSkillsDetected: string[] = [];
     
-    let hasMissingCoreSkill = false;
-
     for (const req of coreRoleSkills) {
         totalCoreWeight += req.importance;
 
@@ -133,7 +131,6 @@ async function evaluateUserForRoleInternal({
         const skillInfo = skillById.get(req.skillId);
 
         if (!match) {
-            hasMissingCoreSkill = true;
             if (skillInfo) {
                 missingSkills.push(skillInfo.name);
             }
@@ -142,10 +139,6 @@ async function evaluateUserForRoleInternal({
 
         const strength = clamp(Number(match.strengthScore), 0, 100);
         
-        if (strength === 0) {
-            hasMissingCoreSkill = true;
-        }
-
         weightedCoreStrength += strength * req.importance;
 
         if (strength < WEAK_SKILL_THRESHOLD) {

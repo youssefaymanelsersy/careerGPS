@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/shared/auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -40,10 +40,12 @@ router.post("/avatar", upload.single("image"), async (req, res) => {
         const parts = oldImageUrl.split("/upload/");
         if (parts.length === 2) {
           const path = parts[1];
-          const withoutVersion = path.replace(/^v\d+\//, "");
-          const publicId = withoutVersion.split(".").slice(0, -1).join(".");
-          if (publicId) {
-            await deleteFromCloudinary(publicId);
+          if (path) {
+            const withoutVersion = path.replace(/^v\d+\//, "");
+            const publicId = withoutVersion.split(".").slice(0, -1).join(".");
+            if (publicId) {
+              await deleteFromCloudinary(publicId);
+            }
           }
         }
       } catch (err) {

@@ -6,6 +6,12 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    "types": ["bun", "node"],
     "jsx": "react-jsx"
-  }
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/scripts/**"
+  ]     
 }
