@@ -14,25 +14,22 @@ COPY --from=pruner /app/out/full/ .
 RUN bun run build --filter=web
 
 FROM nginx:alpine
-RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
-    echo '  listen 5173;' >> /etc/nginx/conf.d/default.conf && \
-    echo '  location = /env.js {' >> /etc/nginx/conf.d/default.conf && \
-    echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    add_header Cache-Control "no-cache, no-store, must-revalidate";' >> /etc/nginx/conf.d/default.conf && \
-    echo '    add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
-    echo '    add_header Expires 0;' >> /etc/nginx/conf.d/default.conf && \
-    echo '  }' >> /etc/nginx/conf.d/default.conf && \
-    echo '  location / {' >> /etc/nginx/conf.d/default.conf && \
-    echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    index index.html index.htm;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '  }' >> /etc/nginx/conf.d/default.conf && \
-    echo '}' >> /etc/nginx/conf.d/default.conf
 
+RUN addgroup -S app && adduser -S app -G app && \
+    touch /var/run/nginx.pid && \
+    chown -R app:app /var/run/nginx.pid /var/cache/nginx /etc/nginx
+
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/apps/web/build/client /usr/share/nginx/html
 COPY apps/web/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh && \
+    chown -R app:app /usr/share/nginx/html
 
+USER app
 EXPOSE 5173
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:5173/ || exit 1
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
