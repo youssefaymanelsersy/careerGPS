@@ -29,7 +29,7 @@ USER app
 EXPOSE 5173
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:5173/ || exit 1
+  CMD wget -qO- http://127.0.0.1:5173/ || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
