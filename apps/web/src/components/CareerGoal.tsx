@@ -10,11 +10,12 @@ import {
 import { useNavigate } from 'react-router';
 import Stepper from '../components/Stepper';
 import { trpc } from "../utils/trpc";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 interface Goal {
   id: string | number;
   title: string;
-  description?: string;
+  description: string | null;
   score?: number;
 }
 
@@ -48,12 +49,12 @@ const CareerGoal = () => {
     "Full Stack Developer": Layers,
   }; 
 
-const setUserRole = trpc.roles.setUserRole.useMutation();
+const setUserRole = useMutation(trpc.roles.setUserRole.mutationOptions());
 
 const { data, isLoading, error } =
-  trpc.roles.getAllRoles.useQuery({
+  useQuery(trpc.roles.getAllRoles.queryOptions({
     includeScore: true,
-  });
+  }));
 
 const goals: Goal[] = data ?? [];
   if (isLoading) {

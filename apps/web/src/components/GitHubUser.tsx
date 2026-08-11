@@ -9,12 +9,14 @@ interface MessageState {
   text: string;
 }
 
+import { useMutation } from '@tanstack/react-query';
+
 const GitHubUser = () => {
   const [username, setUsername] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<MessageState>({ type: '', text: '' });
   const navigate = useNavigate();
-  const syncProjects = trpc.github.syncProjects.useMutation();
+  const syncProjects = useMutation(trpc.github.syncProjects.mutationOptions());
 
   const validateUsername = (input: string): string | null => {
     const trimmed = input.trim();

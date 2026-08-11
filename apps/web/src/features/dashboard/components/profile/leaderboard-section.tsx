@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TIER_COLORS, calculateTier, type GamificationTier, type GlobalLeaderboard, type RoleLeaderboard } from "./profile.types";
 import { Crown, Diamond, Globe, Medal, Star, Trophy, Users } from "lucide-react";
 
-type LeaderboardEntry = { userId: string; name: string; image: string; roleId: string; finalScore: number; activityScore: number; tier: "Bronze" | "Silver" | "Gold" | "Diamond" | "Master" };
+type LeaderboardEntry = { userId: string; name: string; image: string | null; roleId: string; finalScore: number; activityScore: number; tier: "Bronze" | "Silver" | "Gold" | "Diamond" | "Master" };
 
 interface LeaderboardSectionProps {
 	globalLeaderboard: GlobalLeaderboard | undefined;
