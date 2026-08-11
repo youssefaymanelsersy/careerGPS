@@ -1,0 +1,115 @@
+# Career GPS CI Workflow
+name: CI
+
+# Triggers: run on pull requests to main/dev and pushes to main
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+
+# cancel previous runs if a new commit is pushed to the same branch
+concurrency:
+  # Group workflows by name and branch
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Cancel previous runs if a new commit is pushed to the same branch
+  cancel-in-progress: true
+
+# specify permissions for github actions to have the least privilege needed to run this workflow
+permissions:
+  contents: read
+
+# Define jobs to be run
+jobs:
+
+  # Run code checks: install, type-check, test, build
+  checks:
+    # Job metadata
+    name: Install, type-check, test, build
+    runs-on: ubuntu-latest
+
+    # Steps to be executed
+    steps:
+      # Check out the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Bun
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.6"
+
+      # Cache Turbo
+      # Used to cache the contents of the .turbo directory between runs.
+      # This significantly speeds up subsequent runs by avoiding redundant work.
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          # Define cache key for this run.
+          # Cache hit if both OS and commit SHA match.
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Type-check (server + shared packages)
+      # turbo's "check-types" task only covers packages that define a
+      # "check-types" script. apps/web currently names its script
+      # "typecheck" instead, so it is invoked separately here until
+      # that naming is unified across the monorepo.
+      - name: Type-check (server + shared packages)
+        run: bun run check-types
+
+      # Run tests (only apps/server defines a "test" script for now).
+      - name: Test (server)
+        run: bunx turbo test --filter=server
+
+      # Build the project
+      - name: Build
+        run: bun run build
+
+  # Build Docker images
+  docker-build:
+    # Job metadata
+    name: Validate ${{ matrix.target }} image build
+    runs-on: ubuntu-latest
+    needs: checks
+    # Run this job in parallel for each target (server and web)
+    strategy:
+      # Fail fast if any job doesn't complete successfully
+      fail-fast: false
+      # Matrix configuration is used to run the same job multiple times with different inputs
+      matrix:
+        target: [server, web]
+    # Steps to be executed
+    steps:
+      # Check out the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build Docker image for the current target from the Dockerfile in the same directory
+      - name: Build ${{ matrix.target }} image
+        uses: docker/build-push-action@v6
+        with:
+          # Context is the root directory of the repository
+          context: .
+          # File is the Dockerfile for the current target
+          file: apps/${{ matrix.target }}/Dockerfile
+          # Push is set to false to only build the image
+          push: false
+          # Use GitHub Actions cache for the current target
+          cache-from: type=gha,scope=${{ matrix.target }}
+          # Use GitHub Actions cache for the current target in max mode
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
