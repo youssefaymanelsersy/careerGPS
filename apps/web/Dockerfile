@@ -11,6 +11,12 @@ COPY --from=pruner /app/out/bun.lock/ ./bun.lock
 RUN bun install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
+
+ARG VITE_SERVER_URL="http://localhost:3000"
+ARG VITE_VAPID_PUBLIC_KEY="placeholder-vapid-key-for-ci-build-only"
+ENV VITE_SERVER_URL=$VITE_SERVER_URL
+ENV VITE_VAPID_PUBLIC_KEY=$VITE_VAPID_PUBLIC_KEY
+
 RUN bun run build --filter=web
 
 FROM nginx:alpine
